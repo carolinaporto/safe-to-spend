@@ -20,3 +20,18 @@ export function formatDate(iso: string): string {
 export function currencyOptions(): Currency[] {
   return ["USD", "BRL"];
 }
+
+/** For chart plotting ONLY. Never use the result for money arithmetic that
+ *  gets sent back to the server — the backend owns all financial math. */
+export function toPlotNumber(value: string): number {
+  return Number.parseFloat(value);
+}
+
+export function shortMonth(iso: string): string {
+  const [y, m] = iso.slice(0, 7).split("-");
+  const names = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
+  return `${names[Number(m) - 1]} ${y.slice(2)}`;
+}
