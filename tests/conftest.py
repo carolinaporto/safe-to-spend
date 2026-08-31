@@ -25,7 +25,6 @@ from sqlalchemy.orm import Session  # noqa: E402
 
 from backend.database import engine  # noqa: E402
 from backend.main import app  # noqa: E402
-from backend.models.login_attempt import LoginAttempt  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -35,11 +34,18 @@ def _migrate() -> None:
 
 
 @pytest.fixture(autouse=True)
-def _clean_login_attempts() -> None:
-    from sqlalchemy import delete
+def _clean_tables() -> None:
+    """Every test starts from empty tables. Anything committed by a test
+    (e.g. the seed script) is cleared before the next one runs."""
+    from sqlalchemy import text
 
     with engine.begin() as conn:
-        conn.execute(delete(LoginAttempt))
+        conn.execute(
+            text(
+                "TRUNCATE transactions, fx_rates, accounts, categories, "
+                "people, login_attempts RESTART IDENTITY CASCADE"
+            )
+        )
     yield
 
 
