@@ -60,16 +60,20 @@ Full schema and business rules: [`docs/PLAN.md`](docs/PLAN.md).
 git clone https://github.com/<user>/safe-to-spend.git
 cd safe-to-spend
 
-# Backend
+# Database — Neon in production; Postgres via Docker for local dev
+docker compose up -d db
+
+# Backend (Python 3.12)
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env          # add your Neon DATABASE_URL
+cp .env.example .env          # DATABASE_URL is pre-filled for the Docker DB
+python -m backend.scripts.hash_password "your-password"   # paste into APP_PASSWORD_HASH
 alembic upgrade head
 python -m backend.seed
 uvicorn backend.main:app --reload
 
 # Frontend
-cd frontend && npm install && npm run dev
+cd frontend && cp .env.example .env && npm install && npm run dev
 ```
 
 Backend on `:8000`, frontend on `:5173`. Environment variables are documented in `.env.example`.
