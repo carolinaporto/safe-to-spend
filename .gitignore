@@ -216,3 +216,22 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+
+# Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel/
+
+# OS
+.DS_Store
