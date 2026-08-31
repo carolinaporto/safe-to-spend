@@ -1,5 +1,9 @@
 import styled from "styled-components";
 
+import type { Theme } from "../theme";
+
+type SpaceKey = keyof Theme["space"];
+
 export const Card = styled.div`
   background: ${({ theme }) => theme.color.surface};
   border: 1px solid ${({ theme }) => theme.color.border};
@@ -65,4 +69,95 @@ export const PageTitle = styled.h1`
 
 export const Muted = styled.p`
   color: ${({ theme }) => theme.color.textMuted};
+`;
+
+export const Select = styled.select`
+  width: 100%;
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
+  background: ${({ theme }) => theme.color.bg};
+  border: 1px solid ${({ theme }) => theme.color.border};
+  border-radius: ${({ theme }) => theme.radius.md};
+  color: ${({ theme }) => theme.color.text};
+`;
+
+export const GhostButton = styled(Button)`
+  background: transparent;
+  color: ${({ theme }) => theme.color.textMuted};
+  border: 1px solid ${({ theme }) => theme.color.border};
+
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.color.surfaceRaised};
+    color: ${({ theme }) => theme.color.text};
+  }
+`;
+
+export const DangerButton = styled(Button)`
+  background: ${({ theme }) => theme.color.danger};
+`;
+
+export const Stack = styled.div<{ $gap?: SpaceKey }>`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme, $gap }) => theme.space[$gap ?? "lg"]};
+`;
+
+export const Row = styled.div<{ $gap?: SpaceKey }>`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme, $gap }) => theme.space[$gap ?? "md"]};
+  flex-wrap: wrap;
+`;
+
+export const Field = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+export const Badge = styled.span<{ $color?: string }>`
+  display: inline-flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.xs};
+  padding: ${({ theme }) => `${theme.space.xxs} ${theme.space.sm}`};
+  border-radius: ${({ theme }) => theme.radius.pill};
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  font-weight: ${({ theme }) => theme.fontWeight.medium};
+  background: ${({ theme }) => theme.color.surfaceRaised};
+  color: ${({ $color, theme }) => $color ?? theme.color.textMuted};
+`;
+
+export const Table = styled.table`
+  width: 100%;
+  border-collapse: collapse;
+  font-size: ${({ theme }) => theme.fontSize.sm};
+`;
+
+export const Th = styled.th`
+  text-align: left;
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
+  color: ${({ theme }) => theme.color.textMuted};
+  font-weight: ${({ theme }) => theme.fontWeight.medium};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border};
+  white-space: nowrap;
+`;
+
+export const Td = styled.td`
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
+  border-bottom: 1px solid ${({ theme }) => theme.color.border};
+`;
+
+export const TableScroll = styled.div`
+  width: 100%;
+  overflow-x: auto;
+`;
+
+export const MoneyText = styled.span<{ $tone?: "in" | "out" | "muted" }>`
+  font-variant-numeric: tabular-nums;
+  color: ${({ theme, $tone }) =>
+    $tone === "in"
+      ? theme.color.inflow
+      : $tone === "out"
+        ? theme.color.text
+        : $tone === "muted"
+          ? theme.color.textMuted
+          : theme.color.text};
 `;
