@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import { ThemeProvider } from "styled-components";
 
 import { App } from "./App";
+import { AuthProvider } from "./auth/AuthContext";
 import { queryClient } from "./lib/queryClient";
 import { GlobalStyle } from "./styles/GlobalStyle";
 import { theme } from "./theme";
@@ -20,7 +21,9 @@ createRoot(document.getElementById("root")!).render(
         <GlobalStyle />
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-            <App />
+            <AuthProvider>
+              <App />
+            </AuthProvider>
           </BrowserRouter>
         </QueryClientProvider>
       </IconContext.Provider>

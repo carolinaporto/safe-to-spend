@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "./app/AppShell";
+import { useAuth } from "./auth/AuthContext";
+import { Login } from "./pages/Login";
 import {
   Budget,
   Home,
@@ -13,6 +15,16 @@ import {
 } from "./pages/placeholders";
 
 export function App() {
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return (
+      <Routes>
+        <Route path="*" element={<Login />} />
+      </Routes>
+    );
+  }
+
   return (
     <Routes>
       <Route element={<AppShell />}>

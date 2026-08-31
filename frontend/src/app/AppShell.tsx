@@ -1,6 +1,8 @@
+import { SignOut } from "@phosphor-icons/react";
 import { NavLink, Outlet } from "react-router-dom";
 import styled from "styled-components";
 
+import { useAuth } from "../auth/AuthContext";
 import { navItems } from "./nav";
 
 const Layout = styled.div`
@@ -63,6 +65,32 @@ const NavItemLink = styled(NavLink)`
   }
 `;
 
+const Spacer = styled.div`
+  flex: 1;
+
+  @media (max-width: 720px) {
+    display: none;
+  }
+`;
+
+const SignOutButton = styled.button`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.md};
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
+  border: none;
+  background: none;
+  border-radius: ${({ theme }) => theme.radius.md};
+  color: ${({ theme }) => theme.color.textMuted};
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  cursor: pointer;
+
+  &:hover {
+    background: ${({ theme }) => theme.color.surfaceRaised};
+    color: ${({ theme }) => theme.color.text};
+  }
+`;
+
 const Main = styled.main`
   padding: ${({ theme }) => theme.space.xxl};
   width: 100%;
@@ -75,6 +103,8 @@ const Main = styled.main`
 `;
 
 export function AppShell() {
+  const { logout } = useAuth();
+
   return (
     <Layout>
       <Sidebar>
@@ -85,6 +115,11 @@ export function AppShell() {
             {label}
           </NavItemLink>
         ))}
+        <Spacer />
+        <SignOutButton type="button" onClick={logout}>
+          <SignOut size={18} />
+          Sign out
+        </SignOutButton>
       </Sidebar>
       <Main>
         <Outlet />
