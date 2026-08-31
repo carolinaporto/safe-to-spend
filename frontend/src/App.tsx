@@ -2,12 +2,13 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "./app/AppShell";
 import { useAuth } from "./auth/AuthContext";
+import { Budget } from "./pages/Budget";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { QuickAdd } from "./pages/QuickAdd";
 import { Settings } from "./pages/Settings";
 import { Transactions } from "./pages/Transactions";
-import { Budget, Income, People, Transfers } from "./pages/placeholders";
+import { Income, People, Transfers } from "./pages/placeholders";
 
 export function App() {
   const { isAuthenticated } = useAuth();

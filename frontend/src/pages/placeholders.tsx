@@ -20,6 +20,5 @@ function Placeholder({ title, phase }: { title: string; phase: string }) {
 }
 
 export const Transfers = () => <Placeholder title="Transfers" phase="Phase 4" />;
-export const Budget = () => <Placeholder title="Budget" phase="Phase 2" />;
 export const People = () => <Placeholder title="People" phase="Phase 4" />;
 export const Income = () => <Placeholder title="Income" phase="Phase 4" />;

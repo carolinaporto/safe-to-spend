@@ -1,5 +1,5 @@
 import { Plus, TrashSimple } from "@phosphor-icons/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styled from "styled-components";
 
 import {
@@ -29,10 +29,12 @@ import {
   useCategories,
   useDeleteAccount,
   useDeleteCategory,
+  usePlanConfig,
   useSaveAccount,
   useSaveCategory,
+  useSavePlanConfig,
 } from "../lib/queries";
-import type { CategoryNature } from "../lib/types";
+import type { CategoryNature, CommittedCost } from "../lib/types";
 
 const NATURES: CategoryNature[] = [
   "essential",
@@ -359,14 +361,171 @@ function CategoriesSection() {
   );
 }
 
+function PlanSection() {
+  const { data } = usePlanConfig();
+  const save = useSavePlanConfig();
+  const meta = useMeta();
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    academic_year_start: "",
+    academic_year_end: "",
+    emergency_reserve_usd: "",
+  });
+  const [costs, setCosts] = useState<CommittedCost[]>([]);
+
+  useEffect(() => {
+    if (!data) return;
+    setForm({
+      academic_year_start: data.academic_year_start,
+      academic_year_end: data.academic_year_end,
+      emergency_reserve_usd: data.emergency_reserve_usd,
+    });
+    setCosts(data.committed_costs);
+  }, [data]);
+
+  async function persist(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await save.mutateAsync({
+        ...form,
+        committed_costs: costs.filter((c) => c.label && c.amount_usd),
+      });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save");
+    }
+  }
+
+  if (!data) return null;
+
+  return (
+    <Section as="form" onSubmit={persist}>
+      <SectionTitle>Plan</SectionTitle>
+      <AddForm as="div">
+        <Field>
+          <FieldLabel>Academic year start</FieldLabel>
+          <Input
+            type="date"
+            disabled={meta.demo_mode}
+            value={form.academic_year_start}
+            onChange={(e) =>
+              setForm({ ...form, academic_year_start: e.target.value })
+            }
+          />
+        </Field>
+        <Field>
+          <FieldLabel>Academic year end</FieldLabel>
+          <Input
+            type="date"
+            disabled={meta.demo_mode}
+            value={form.academic_year_end}
+            onChange={(e) =>
+              setForm({ ...form, academic_year_end: e.target.value })
+            }
+          />
+        </Field>
+        <Field>
+          <FieldLabel>Emergency reserve (USD)</FieldLabel>
+          <Input
+            inputMode="decimal"
+            disabled={meta.demo_mode}
+            value={form.emergency_reserve_usd}
+            onChange={(e) =>
+              setForm({ ...form, emergency_reserve_usd: e.target.value })
+            }
+          />
+        </Field>
+      </AddForm>
+
+      <div>
+        <FieldLabel>Future committed costs</FieldLabel>
+        <Stack $gap="sm">
+          {costs.map((cost, i) => (
+            <Row key={i} $gap="sm">
+              <Input
+                placeholder="Label"
+                disabled={meta.demo_mode}
+                value={cost.label}
+                onChange={(e) =>
+                  setCosts(
+                    costs.map((c, j) =>
+                      j === i ? { ...c, label: e.target.value } : c,
+                    ),
+                  )
+                }
+              />
+              <Input
+                inputMode="decimal"
+                placeholder="USD"
+                disabled={meta.demo_mode}
+                value={cost.amount_usd}
+                onChange={(e) =>
+                  setCosts(
+                    costs.map((c, j) =>
+                      j === i ? { ...c, amount_usd: e.target.value } : c,
+                    ),
+                  )
+                }
+              />
+              <Input
+                type="date"
+                disabled={meta.demo_mode}
+                value={cost.due_date}
+                onChange={(e) =>
+                  setCosts(
+                    costs.map((c, j) =>
+                      j === i ? { ...c, due_date: e.target.value } : c,
+                    ),
+                  )
+                }
+              />
+              {!meta.demo_mode && (
+                <GhostButton
+                  type="button"
+                  aria-label="Remove cost"
+                  onClick={() => setCosts(costs.filter((_, j) => j !== i))}
+                >
+                  <TrashSimple size={14} />
+                </GhostButton>
+              )}
+            </Row>
+          ))}
+          {!meta.demo_mode && (
+            <GhostButton
+              type="button"
+              onClick={() =>
+                setCosts([
+                  ...costs,
+                  { label: "", amount_usd: "", due_date: form.academic_year_end },
+                ])
+              }
+            >
+              <Plus size={14} /> Add committed cost
+            </GhostButton>
+          )}
+        </Stack>
+      </div>
+
+      {error && <ErrorText>{error}</ErrorText>}
+      {!meta.demo_mode && (
+        <Row>
+          <Button type="submit" disabled={save.isPending}>
+            Save plan
+          </Button>
+        </Row>
+      )}
+    </Section>
+  );
+}
+
 export function Settings() {
   return (
     <Stack $gap="xl">
       <PageTitle>Settings</PageTitle>
       <Muted>
-        Merchant rules, recurring rules, academic-year dates, reserve and
-        committed costs arrive in later phases.
+        Merchant rules and recurring rules arrive in later phases.
       </Muted>
+      <PlanSection />
       <AccountsSection />
       <CategoriesSection />
     </Stack>
