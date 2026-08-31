@@ -83,7 +83,6 @@ export function Home() {
             <AccountName>{account.name}</AccountName>
             <Muted as="span">
               {account.institution} · {account.kind.replace("_", " ")}
-              {!account.is_owned && " · external"}
             </Muted>
             <Balances>
               <Native>{formatMoney(account.balance, account.currency)}</Native>
