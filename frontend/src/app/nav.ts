@@ -15,6 +15,8 @@ export interface NavItem {
   label: string;
   icon: Icon;
   end?: boolean;
+  /** Hidden when the instance runs with import disabled (demo mode). */
+  requiresImport?: boolean;
 }
 
 export const navItems: NavItem[] = [

@@ -3,6 +3,7 @@ import { NavLink, Outlet } from "react-router-dom";
 import styled from "styled-components";
 
 import { useAuth } from "../auth/AuthContext";
+import { useMeta } from "../lib/meta";
 import { navItems } from "./nav";
 
 const Layout = styled.div`
@@ -32,6 +33,9 @@ const Sidebar = styled.aside`
 `;
 
 const Brand = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.sm};
   font-weight: ${({ theme }) => theme.fontWeight.bold};
   font-size: ${({ theme }) => theme.fontSize.lg};
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
@@ -40,6 +44,17 @@ const Brand = styled.div`
   @media (max-width: 720px) {
     margin-bottom: 0;
   }
+`;
+
+const DemoBadge = styled.span`
+  padding: ${({ theme }) => `${theme.space.xxs} ${theme.space.sm}`};
+  border-radius: ${({ theme }) => theme.radius.pill};
+  background: ${({ theme }) => theme.color.warning};
+  color: ${({ theme }) => theme.color.bg};
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  font-weight: ${({ theme }) => theme.fontWeight.semibold};
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 `;
 
 const NavItemLink = styled(NavLink)`
@@ -104,12 +119,19 @@ const Main = styled.main`
 
 export function AppShell() {
   const { logout } = useAuth();
+  const meta = useMeta();
+  const items = navItems.filter(
+    (item) => !item.requiresImport || meta.import_enabled,
+  );
 
   return (
     <Layout>
       <Sidebar>
-        <Brand>safe-to-spend</Brand>
-        {navItems.map(({ to, label, icon: Icon, end }) => (
+        <Brand>
+          safe-to-spend
+          {meta.demo_mode && <DemoBadge>Demo</DemoBadge>}
+        </Brand>
+        {items.map(({ to, label, icon: Icon, end }) => (
           <NavItemLink key={to} to={to} end={end}>
             <Icon size={18} />
             {label}
