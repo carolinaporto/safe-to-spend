@@ -32,7 +32,6 @@ import {
   useSaveAccount,
   useSaveCategory,
 } from "../lib/queries";
-import { theme } from "../theme";
 import type { CategoryNature } from "../lib/types";
 
 const NATURES: CategoryNature[] = [
@@ -58,6 +57,39 @@ const AddForm = styled.form`
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: ${({ theme }) => theme.space.sm};
   align-items: end;
+`;
+
+const NatureGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.space.sm};
+`;
+
+const NatureLabel = styled.span<{ $nature: CategoryNature }>`
+  font-size: ${({ theme }) => theme.fontSize.sm};
+  font-weight: ${({ theme }) => theme.fontWeight.medium};
+  text-transform: capitalize;
+  color: ${({ theme, $nature }) => theme.nature[$nature]};
+`;
+
+const CategoryName = styled.span<{ $archived: boolean }>`
+  opacity: ${({ $archived }) => ($archived ? 0.5 : 1)};
+  text-decoration: ${({ $archived }) =>
+    $archived ? "line-through" : "none"};
+`;
+
+const ChipButton = styled.button<{ $danger?: boolean }>`
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme, $danger }) =>
+    $danger ? theme.color.danger : theme.color.textMuted};
+
+  &:hover {
+    color: ${({ theme, $danger }) =>
+      $danger ? theme.color.danger : theme.color.text};
+  }
 `;
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -258,24 +290,15 @@ function CategoriesSection() {
           );
           if (inNature.length === 0) return null;
           return (
-            <div key={nature}>
-              <Muted as="span" style={{ color: theme.nature[nature] }}>
-                {nature}
-              </Muted>
-              <Row $gap="sm" style={{ marginTop: theme.space.sm }}>
+            <NatureGroup key={nature}>
+              <NatureLabel $nature={nature}>{nature}</NatureLabel>
+              <Row $gap="sm">
                 {inNature.map((c) => (
-                  <Badge key={c.id} $color={theme.color.text}>
-                    <span
-                      style={{
-                        opacity: c.is_archived ? 0.5 : 1,
-                        textDecoration: c.is_archived
-                          ? "line-through"
-                          : "none",
-                      }}
-                    >
+                  <Badge key={c.id}>
+                    <CategoryName $archived={c.is_archived}>
                       {c.name}
-                    </span>
-                    <button
+                    </CategoryName>
+                    <ChipButton
                       type="button"
                       aria-label={`Toggle archive ${c.name}`}
                       onClick={() =>
@@ -284,34 +307,23 @@ function CategoriesSection() {
                           is_archived: !c.is_archived,
                         })
                       }
-                      style={{
-                        background: "none",
-                        border: "none",
-                        color: theme.color.textMuted,
-                        cursor: "pointer",
-                      }}
                     >
                       {c.is_archived ? "restore" : "archive"}
-                    </button>
+                    </ChipButton>
                     {!meta.demo_mode && (
-                      <button
+                      <ChipButton
                         type="button"
+                        $danger
                         aria-label={`Delete ${c.name}`}
                         onClick={() => del(c.id)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: theme.color.danger,
-                          cursor: "pointer",
-                        }}
                       >
                         ×
-                      </button>
+                      </ChipButton>
                     )}
                   </Badge>
                 ))}
               </Row>
-            </div>
+            </NatureGroup>
           );
         })}
       </Stack>

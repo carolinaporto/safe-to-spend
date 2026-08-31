@@ -37,6 +37,7 @@ import {
   type TransactionFilters,
 } from "../lib/queries";
 import { theme } from "../theme";
+import type { Theme } from "../theme";
 import type { Category, Transaction } from "../lib/types";
 
 const Filters = styled.div`
@@ -53,6 +54,11 @@ const InlineSelect = styled(Select)`
   padding: ${({ theme }) => `${theme.space.xxs} ${theme.space.xs}`};
   font-size: ${({ theme }) => theme.fontSize.xs};
   max-width: 180px;
+`;
+
+const CategorySelect = styled(InlineSelect)<{ $nature?: keyof Theme["nature"] }>`
+  color: ${({ theme, $nature }) =>
+    $nature ? theme.nature[$nature] : theme.color.text};
 `;
 
 const Amount = styled.span<{ $in: boolean }>`
@@ -164,18 +170,14 @@ export function Transactions() {
             ? categoriesById.get(t.category_id)
             : undefined;
           return (
-            <InlineSelect
+            <CategorySelect
               value={t.category_id ?? ""}
+              $nature={category?.nature}
               onChange={(e) =>
                 update.mutate({
                   id: t.id,
                   category_id: e.target.value ? Number(e.target.value) : null,
                 })
-              }
-              style={
-                category
-                  ? { color: theme.nature[category.nature] }
-                  : undefined
               }
             >
               <option value="">Uncategorized</option>
@@ -184,7 +186,7 @@ export function Transactions() {
                   {c.name}
                 </option>
               ))}
-            </InlineSelect>
+            </CategorySelect>
           );
         },
       }),
