@@ -1,0 +1,21 @@
+# Local development / test database only. Production uses Neon.
+services:
+  db:
+    image: postgres:16
+    container_name: safe-to-spend-db
+    environment:
+      POSTGRES_USER: sts
+      POSTGRES_PASSWORD: sts
+      POSTGRES_DB: safe_to_spend
+    ports:
+      - "5432:5432"
+    volumes:
+      - sts_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sts -d safe_to_spend"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  sts_pgdata:

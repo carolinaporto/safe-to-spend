@@ -1,0 +1,17 @@
+[project]
+name = "safe-to-spend"
+version = "0.1.0"
+description = "Personal finance web app for an academic year abroad"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["error::DeprecationWarning:backend.*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
