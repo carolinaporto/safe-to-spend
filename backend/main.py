@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.config import get_settings
 from backend.logging_config import configure_logging
-from backend.routers import accounts, auth, fx, health, meta
+from backend.routers import accounts, auth, categories, fx, health, meta
 
 configure_logging()
 settings = get_settings()
@@ -45,3 +45,4 @@ app.include_router(meta.router)
 app.include_router(auth.router)
 app.include_router(fx.router)
 app.include_router(accounts.router)
+app.include_router(categories.router)
