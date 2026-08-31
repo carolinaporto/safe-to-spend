@@ -20,6 +20,7 @@ import pytest  # noqa: E402
 from alembic import command  # noqa: E402
 from alembic.config import Config  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy.orm import Session  # noqa: E402
 
 from backend.database import engine  # noqa: E402
 from backend.main import app  # noqa: E402
@@ -54,6 +55,21 @@ def demo_mode() -> None:
     finally:
         monkey.undo()
         get_settings.cache_clear()
+
+
+@pytest.fixture
+def db() -> Session:
+    """A session wrapped in a transaction that is rolled back after the test,
+    so nothing it writes persists between tests."""
+    connection = engine.connect()
+    outer = connection.begin()
+    session = Session(bind=connection, join_transaction_mode="create_savepoint")
+    try:
+        yield session
+    finally:
+        session.close()
+        outer.rollback()
+        connection.close()
 
 
 @pytest.fixture
