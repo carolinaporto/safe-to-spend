@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
     cors_origins: str = Field(default="", alias="CORS_ORIGINS")
 
+    # Demo deployment: disables destructive actions and lets the frontend
+    # hide screens that don't make sense on a shared public instance.
+    demo_mode: bool = Field(default=False, alias="DEMO_MODE")
+
     # JWT
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = 60 * 24 * 14  # 14 days
