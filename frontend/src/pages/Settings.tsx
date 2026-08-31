@@ -61,6 +61,17 @@ const AddForm = styled.form`
   align-items: end;
 `;
 
+const CostRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 120px 160px auto;
+  gap: ${({ theme }) => theme.space.sm};
+  align-items: center;
+
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr 1fr;
+  }
+`;
+
 const NatureGroup = styled.div`
   display: flex;
   flex-direction: column;
@@ -441,7 +452,7 @@ function PlanSection() {
         <FieldLabel>Future committed costs</FieldLabel>
         <Stack $gap="sm">
           {costs.map((cost, i) => (
-            <Row key={i} $gap="sm">
+            <CostRow key={i}>
               <Input
                 placeholder="Label"
                 disabled={meta.demo_mode}
@@ -488,7 +499,7 @@ function PlanSection() {
                   <TrashSimple size={14} />
                 </GhostButton>
               )}
-            </Row>
+            </CostRow>
           ))}
           {!meta.demo_mode && (
             <GhostButton

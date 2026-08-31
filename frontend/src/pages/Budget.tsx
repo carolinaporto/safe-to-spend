@@ -109,8 +109,17 @@ export function Budget() {
 
   if (isLoading || !data) return <Muted>Loading budget…</Muted>;
 
-  const rows = data.lines;
   const key = (l: BudgetLine) => String(l.category_id);
+  const rank = (l: BudgetLine) => {
+    if (l.category_id === null) return 0;
+    const d = drafts[key(l)];
+    const budgeted = Number.parseFloat(d?.amount ?? l.amount_usd);
+    const spent = Number.parseFloat(l.spent_usd);
+    return budgeted > 0 ? 1 : spent > 0 ? 2 : 3;
+  };
+  const rows = [...data.lines].sort(
+    (a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name),
+  );
 
   async function persist() {
     setError(null);
@@ -172,10 +181,12 @@ export function Budget() {
             amount: line.amount_usd,
             rollover: line.rollover,
           };
-          const budgeted = toPlotNumber(d.amount) + toPlotNumber(line.rollover_in_usd);
+          const budgeted =
+            toPlotNumber(d.amount) + toPlotNumber(line.rollover_in_usd);
           const spent = toPlotNumber(line.spent_usd);
-          const pct = budgeted > 0 ? (spent / budgeted) * 100 : spent > 0 ? 100 : 0;
-          const remaining = (budgeted - spent).toFixed(2);
+          const hasBudget = budgeted > 0;
+          const over = spent > budgeted;
+          const pct = hasBudget ? (spent / budgeted) * 100 : spent > 0 ? 100 : 0;
           return (
             <Line key={key(line)}>
               <Name $strong={line.category_id === null}>
@@ -215,11 +226,11 @@ export function Budget() {
                 <Muted as="span">roll</Muted>
               </label>
               <Bar>
-                <BarFill $pct={pct} $over={spent > budgeted && budgeted > 0} />
+                <BarFill $pct={pct} $over={over && (hasBudget || spent > 0)} />
               </Bar>
-              <Remaining $negative={remaining.startsWith("-")}>
-                {formatMoney(line.spent_usd, "USD")} /{" "}
-                {formatMoney(d.amount, "USD")}
+              <Remaining $negative={over && spent > 0}>
+                {formatMoney(line.spent_usd, "USD")}
+                {hasBudget && ` / ${formatMoney(d.amount, "USD")}`}
               </Remaining>
             </Line>
           );

@@ -141,7 +141,7 @@ export function Home() {
   const balances = useDashboardBalances();
   const projection = useProjection();
   const byCategory = useByCategory();
-  const cashflow = useCashflow(8);
+  const cashflow = useCashflow(6);
   const review = useTransactions({ needs_review: true, page_size: 1 });
   const budget = useBudget(currentMonth());
 
