@@ -190,6 +190,29 @@ def test_list_filters_and_pagination(
     assert by_nature["total"] == 3
 
 
+def test_needs_review_filter(
+    api_client: TestClient,
+    auth_headers: dict,
+    brl_account: Account,
+    usd_account: Account,
+) -> None:
+    # BRL with no rate -> flagged; USD -> not flagged
+    api_client.post(
+        "/api/transactions",
+        json={"account_id": brl_account.id, "kind": "expense", "amount": "5.00"},
+        headers=auth_headers,
+    )
+    api_client.post(
+        "/api/transactions",
+        json={"account_id": usd_account.id, "kind": "expense", "amount": "5.00"},
+        headers=auth_headers,
+    )
+    flagged = api_client.get(
+        "/api/transactions?needs_review=true", headers=auth_headers
+    ).json()
+    assert flagged["total"] == 1
+
+
 def test_bulk_categorize(
     api_client: TestClient,
     auth_headers: dict,
