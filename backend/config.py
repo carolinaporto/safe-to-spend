@@ -1,7 +1,14 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# CORS: the deployed origin comes from CORS_ORIGINS; localhost dev origins are
+# always allowed on top of it, and nothing else (security requirement).
+LOCALHOST_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 
 class Settings(BaseSettings):
@@ -15,23 +22,39 @@ class Settings(BaseSettings):
 
     database_url: str = Field(alias="DATABASE_URL")
     app_password_hash: str = Field(default="", alias="APP_PASSWORD_HASH")
-    jwt_secret: str = Field(default="dev-insecure-secret", alias="JWT_SECRET")
+    # No default: a missing JWT_SECRET must fail loudly at startup.
+    jwt_secret: str = Field(alias="JWT_SECRET")
     cron_secret: str = Field(default="", alias="CRON_SECRET")
     fx_api_url: str = Field(
         default="https://api.frankfurter.dev", alias="FX_API_URL"
     )
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
-    cors_origins: str = Field(
-        default="http://localhost:5173", alias="CORS_ORIGINS"
-    )
+    cors_origins: str = Field(default="", alias="CORS_ORIGINS")
 
     # JWT
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = 60 * 24 * 14  # 14 days
 
+    # Login throttle
+    login_max_failures: int = 5
+    login_lockout_minutes: int = 15
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def _jwt_secret_must_be_strong(cls, v: str) -> str:
+        if len(v.strip()) < 16:
+            raise ValueError(
+                "JWT_SECRET must be set to a value of at least 16 characters"
+            )
+        return v
+
     @property
     def cors_origin_list(self) -> list[str]:
-        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+        configured = [
+            o.strip() for o in self.cors_origins.split(",") if o.strip()
+        ]
+        # Dedupe while preserving order.
+        return list(dict.fromkeys([*configured, *LOCALHOST_ORIGINS]))
 
     @property
     def sqlalchemy_url(self) -> str:
