@@ -43,7 +43,8 @@ def _clean_tables() -> None:
         conn.execute(
             text(
                 "TRUNCATE transactions, fx_rates, accounts, categories, "
-                "people, login_attempts RESTART IDENTITY CASCADE"
+                "people, login_attempts, budgets, plan_config "
+                "RESTART IDENTITY CASCADE"
             )
         )
     yield
