@@ -8,6 +8,7 @@ from backend.logging_config import configure_logging
 from backend.routers import (
     accounts,
     auth,
+    backup,
     categories,
     dashboard,
     fx,
@@ -57,3 +58,4 @@ app.include_router(accounts.router)
 app.include_router(categories.router)
 app.include_router(transactions.router)
 app.include_router(dashboard.router)
+app.include_router(backup.router)
