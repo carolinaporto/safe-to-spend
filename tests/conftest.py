@@ -42,6 +42,21 @@ def _clean_login_attempts() -> None:
 
 
 @pytest.fixture
+def demo_mode() -> None:
+    """Run the app with DEMO_MODE=true for the duration of a test."""
+    from backend.config import get_settings
+
+    monkey = pytest.MonkeyPatch()
+    get_settings.cache_clear()
+    monkey.setenv("DEMO_MODE", "true")
+    try:
+        yield
+    finally:
+        monkey.undo()
+        get_settings.cache_clear()
+
+
+@pytest.fixture
 def client() -> TestClient:
     return TestClient(app)
 
