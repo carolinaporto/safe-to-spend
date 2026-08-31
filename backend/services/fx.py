@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from backend.models.fx_rate import FxRate
@@ -77,6 +78,28 @@ def _has_exact_rate(
         ).first()
         is not None
     )
+
+
+def upsert_rate(
+    db: Session,
+    on_date: dt.date,
+    base: str,
+    quote: str,
+    value: Decimal,
+    source: str,
+) -> None:
+    stmt = pg_insert(FxRate).values(
+        date=on_date,
+        base=base,
+        quote=quote,
+        rate=quantize_rate(value),
+        source=source,
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=["date", "base", "quote"],
+        set_={"rate": stmt.excluded.rate, "source": stmt.excluded.source},
+    )
+    db.execute(stmt)
 
 
 def convert_to_usd(

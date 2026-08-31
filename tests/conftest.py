@@ -14,6 +14,7 @@ os.environ["APP_PASSWORD_HASH"] = bcrypt.hashpw(
     TEST_PASSWORD.encode("utf-8"), bcrypt.gensalt()
 ).decode("utf-8")
 os.environ["JWT_SECRET"] = "test-secret-at-least-16-chars-long"
+os.environ["CRON_SECRET"] = "test-cron-secret"
 os.environ["CORS_ORIGINS"] = "https://app.example.com"
 
 import pytest  # noqa: E402
@@ -82,3 +83,24 @@ def auth_token(client: TestClient) -> str:
     resp = client.post("/api/auth/login", json={"password": TEST_PASSWORD})
     assert resp.status_code == 200
     return resp.json()["access_token"]
+
+
+@pytest.fixture
+def auth_headers() -> dict[str, str]:
+    from backend.security import create_access_token
+
+    return {"Authorization": f"Bearer {create_access_token()}"}
+
+
+@pytest.fixture
+def api_client(db: Session) -> TestClient:
+    """TestClient whose request-scoped DB session is the rollback `db`
+    session, so endpoint writes never persist between tests."""
+    from backend.database import get_db
+
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        with TestClient(app) as test_client:
+            yield test_client
+    finally:
+        app.dependency_overrides.pop(get_db, None)
