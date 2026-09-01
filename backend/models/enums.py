@@ -62,3 +62,8 @@ class PersonRole(StrEnum):
     roommate = "roommate"
     parent = "parent"
     other = "other"
+
+
+class MerchantMatchType(StrEnum):
+    contains = "contains"
+    regex = "regex"

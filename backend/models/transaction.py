@@ -60,9 +60,11 @@ class Transaction(Base):
     excluded_from_my_budget: Mapped[bool] = mapped_column(default=False)
 
     transfer_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    # FK constraints added when recurring_rules / import_batches land.
+    # recurring_rules FK is added when that table lands (Phase 4).
     recurring_id: Mapped[int | None] = mapped_column(Integer)
-    import_batch_id: Mapped[int | None] = mapped_column(Integer)
+    import_batch_id: Mapped[int | None] = mapped_column(
+        ForeignKey("import_batches.id", ondelete="SET NULL")
+    )
 
     source: Mapped[TransactionSource] = mapped_column(
         pg_enum(TransactionSource), default=TransactionSource.manual
