@@ -11,6 +11,7 @@ import { formatDate, formatMoney } from "../lib/format";
 import {
   useBudget,
   useByCategory,
+  useCards,
   useCashflow,
   useDashboardBalances,
   useOverview,
@@ -144,6 +145,7 @@ export function Home() {
   const cashflow = useCashflow(6);
   const review = useTransactions({ needs_review: true, page_size: 1 });
   const budget = useBudget(currentMonth());
+  const cards = useCards();
 
   if (overview.isLoading) return <Muted>Loading dashboard…</Muted>;
   if (overview.isError || !overview.data)
@@ -161,7 +163,15 @@ export function Home() {
       l.remaining_usd.startsWith("-"),
   );
   const unreviewedTotal = review.data?.total ?? 0;
-  const hasAlerts = unreviewedTotal > 0 || exceeded.length > 0;
+  const cardPanels = cards.data ?? [];
+  const dueCards = cardPanels.filter((c) => c.alert);
+  const hasReceivables =
+    o.receivables_usd !== "0.00" && !o.receivables_usd.startsWith("-");
+  const hasAlerts =
+    unreviewedTotal > 0 ||
+    exceeded.length > 0 ||
+    dueCards.length > 0 ||
+    hasReceivables;
 
   return (
     <Stack $gap="xl">
@@ -256,7 +266,45 @@ export function Home() {
               {formatMoney(l.remaining_usd.replace("-", ""), "USD")}
             </AlertRow>
           ))}
+          {dueCards.map((c) => (
+            <AlertRow key={c.account_id}>
+              <Warning size={16} weight="fill" />
+              {c.name} statement of{" "}
+              {formatMoney(c.statement_balance_usd, "USD")} is due
+              {c.due_date ? ` ${formatDate(c.due_date)}` : ""} (
+              {c.days_until_due} day{c.days_until_due === 1 ? "" : "s"})
+            </AlertRow>
+          ))}
+          {hasReceivables && (
+            <AlertRow>
+              <Warning size={16} weight="fill" />
+              {formatMoney(o.receivables_usd, "USD")} owed to you is still
+              unsettled — see People
+            </AlertRow>
+          )}
         </Card>
+      )}
+
+      {cardPanels.length > 0 && (
+        <Stack $gap="md">
+          <ChartTitle>Credit cards</ChartTitle>
+          <AccountGrid>
+            {cardPanels.map((c) => (
+              <AccountCard key={c.account_id}>
+                <strong>{c.name}</strong>
+                <AccountBalances>
+                  <span>{formatMoney(c.current_balance_usd, "USD")}</span>
+                  <Muted as="span">owed now</Muted>
+                </AccountBalances>
+                <Muted as="span">
+                  closed statement{" "}
+                  {formatMoney(c.statement_balance_usd, "USD")}
+                  {c.due_date ? ` · due ${formatDate(c.due_date)}` : ""}
+                </Muted>
+              </AccountCard>
+            ))}
+          </AccountGrid>
+        </Stack>
       )}
 
       <Stack $gap="md">

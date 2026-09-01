@@ -20,6 +20,9 @@ export type CategoryNature =
 
 export type TransactionKind = "expense" | "income" | "transfer" | "adjustment";
 export type TransactionDirection = "in" | "out";
+export type PersonRole = "me" | "roommate" | "parent" | "other";
+export type RecurringFrequency = "weekly" | "monthly" | "yearly";
+export type ExternalTreatment = "gift" | "owe";
 
 export interface Account {
   id: number;
@@ -35,6 +38,7 @@ export interface Account {
   icon: string;
   is_active: boolean;
   sort_order: number;
+  owner_person_id: number | null;
   is_owned: boolean;
   balance: string;
   balance_usd: string;
@@ -71,8 +75,17 @@ export interface Transaction {
   source: string;
   needs_review: boolean;
   tags: string[];
+  transfer_group_id: string | null;
+  shares: ExpenseShare[];
   created_at: string;
   updated_at: string;
+}
+
+export interface ExpenseShare {
+  id: number;
+  person_id: number;
+  share_amount_usd: string;
+  settled: boolean;
 }
 
 export interface TransactionPage {
@@ -116,6 +129,8 @@ export interface DashboardOverview {
   projected_month_end_spend_usd: string;
   traffic_light: TrafficLight;
   runway_days: number | null;
+  receivables_usd: string;
+  liabilities_usd: string;
   month_progress: { elapsed_days: number; total_days: number };
 }
 
@@ -253,4 +268,102 @@ export interface ReviewItem {
 export interface ReviewQueue {
   items: ReviewItem[];
   total: number;
+}
+
+// ------------------------------------------------------------- phase 4
+
+export interface Person {
+  id: number;
+  name: string;
+  role: PersonRole;
+  notes: string;
+}
+
+export interface PersonBalance {
+  person_id: number;
+  name: string;
+  role: PersonRole;
+  owed_to_me_usd: string;
+  i_owe_usd: string;
+  net_usd: string;
+}
+
+export interface Transfer {
+  id: number;
+  transfer_group_id: string;
+  date: string;
+  from_account_id: number;
+  to_account_id: number;
+  amount_out: string;
+  currency_out: string;
+  amount_in: string;
+  currency_in: string;
+  explicit_fee: string | null;
+  explicit_fee_currency: string | null;
+  effective_rate: string;
+  market_rate: string;
+  fx_cost_usd: string;
+  provider: string;
+  notes: string;
+}
+
+export interface ProviderSummary {
+  provider: string;
+  count: number;
+  fx_cost_usd: string;
+  avg_effective_rate: string;
+}
+
+export interface TransferSummary {
+  count: number;
+  total_fx_cost_usd: string;
+  providers: ProviderSummary[];
+}
+
+export interface RecurringRule {
+  id: number;
+  name: string;
+  account_id: number;
+  category_id: number | null;
+  amount: string;
+  currency: string;
+  frequency: RecurringFrequency;
+  day_of_month: number;
+  start_date: string;
+  end_date: string | null;
+  auto_create: boolean;
+  is_income: boolean;
+  last_generated_date: string | null;
+}
+
+export interface IncomeEntry {
+  id: number;
+  date: string;
+  account_id: number;
+  amount: string;
+  currency: string;
+  amount_usd: string;
+}
+
+export interface IncomeSummary {
+  total_funding_brl: string;
+  total_funding_usd: string;
+  converted_brl: string;
+  converted_usd: string;
+  still_in_brl: string;
+  still_in_brl_usd: string;
+  cumulative_fx_cost_usd: string;
+  entries: IncomeEntry[];
+}
+
+export interface CardPanel {
+  account_id: number;
+  name: string;
+  currency: string;
+  current_balance_usd: string;
+  statement_balance_usd: string;
+  statement_close_date: string | null;
+  due_date: string | null;
+  days_until_due: number | null;
+  alert: boolean;
 }

@@ -22,6 +22,8 @@ import type {
   CashflowMonth,
   CategorySpend,
   Projection,
+  ProviderSummary,
+  Transfer,
 } from "../lib/types";
 
 const NATURE_ORDER = ["essential", "discretionary", "setup", "fee"] as const;
@@ -160,6 +162,95 @@ export function CategoryDonut({ rows }: { rows: CategorySpend[] }) {
         <Tooltip contentStyle={tooltipStyle(theme)} formatter={usd} />
         <Legend formatter={legendLabel(theme)} />
       </PieChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function TransferCostChart({ transfers }: { transfers: Transfer[] }) {
+  const theme = useTheme();
+  const ordered = [...transfers].sort((a, b) => a.date.localeCompare(b.date));
+  let running = 0;
+  const data = ordered.map((t) => {
+    running += toPlotNumber(t.fx_cost_usd);
+    return {
+      date: t.date,
+      cost: toPlotNumber(t.fx_cost_usd),
+      cumulative: Number(running.toFixed(2)),
+    };
+  });
+
+  if (data.length === 0) return null;
+
+  return (
+    <ResponsiveContainer width="100%" height={260}>
+      <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+        <defs>
+          <linearGradient id="fxcost" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={theme.color.warning} stopOpacity={0.35} />
+            <stop offset="100%" stopColor={theme.color.warning} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <XAxis
+          dataKey="date"
+          tickFormatter={shortMonth}
+          stroke={theme.color.textFaint}
+          fontSize={12}
+          minTickGap={40}
+        />
+        <YAxis
+          stroke={theme.color.textFaint}
+          fontSize={12}
+          width={64}
+          tickFormatter={(v) => formatMoney(String(v), "USD")}
+        />
+        <Tooltip contentStyle={tooltipStyle(theme)} formatter={usd} />
+        <Area
+          type="monotone"
+          dataKey="cumulative"
+          name="Cumulative FX cost"
+          stroke={theme.color.warning}
+          strokeWidth={2}
+          fill="url(#fxcost)"
+        />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function ProviderRateChart({
+  providers,
+}: {
+  providers: ProviderSummary[];
+}) {
+  const theme = useTheme();
+  const data = providers.map((p) => ({
+    provider: p.provider,
+    rate: toPlotNumber(p.avg_effective_rate),
+    cost: toPlotNumber(p.fx_cost_usd),
+  }));
+
+  if (data.length === 0) return null;
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
+        <XAxis
+          dataKey="provider"
+          stroke={theme.color.textFaint}
+          fontSize={12}
+        />
+        <YAxis
+          stroke={theme.color.textFaint}
+          fontSize={12}
+          width={64}
+          domain={["auto", "auto"]}
+        />
+        <Tooltip
+          cursor={{ fill: theme.color.surfaceRaised }}
+          contentStyle={tooltipStyle(theme)}
+        />
+        <Bar dataKey="rate" name="Avg effective rate" fill={theme.color.primary} />
+      </BarChart>
     </ResponsiveContainer>
   );
 }

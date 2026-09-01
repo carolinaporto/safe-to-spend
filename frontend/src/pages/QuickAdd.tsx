@@ -11,15 +11,23 @@ import {
   ErrorText,
   Field,
   FieldLabel,
+  GhostButton,
   Input,
   Muted,
   PageTitle,
+  Row,
   Select,
   Stack,
 } from "../components/ui";
 import { ApiError } from "../lib/api";
 import { formatMoney } from "../lib/format";
-import { useAccounts, useCategories, useCreateTransaction } from "../lib/queries";
+import {
+  useAccounts,
+  useCategories,
+  useCreateTransaction,
+  usePeople,
+} from "../lib/queries";
+import type { ExternalTreatment } from "../lib/types";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -75,12 +83,21 @@ const Saved = styled.div`
   font-size: ${({ theme }) => theme.fontSize.sm};
 `;
 
+interface Split {
+  person_id: string;
+  share_amount_usd: string;
+}
+
 export function QuickAdd() {
   const accounts = useAccounts();
   const categories = useCategories();
+  const people = usePeople();
   const create = useCreateTransaction();
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [splits, setSplits] = useState<Split[]>([]);
+  const [treatment, setTreatment] = useState<ExternalTreatment>("owe");
+  const [oweTo, setOweTo] = useState("");
 
   const {
     register,
@@ -103,6 +120,7 @@ export function QuickAdd() {
 
   const currency = watch("currency");
   const kind = watch("kind");
+  const accountId = watch("account_id");
 
   const accountsForCurrency = useMemo(
     () =>
@@ -111,6 +129,12 @@ export function QuickAdd() {
       ),
     [accounts.data, currency],
   );
+
+  const selectedAccount = (accounts.data ?? []).find(
+    (a) => a.id === Number(accountId),
+  );
+  const isExternal = selectedAccount?.kind === "external";
+  const otherPeople = (people.data ?? []).filter((p) => p.role !== "me");
 
   const categoriesForKind = useMemo(() => {
     const list = (categories.data ?? []).filter((c) => !c.is_archived);
@@ -121,6 +145,19 @@ export function QuickAdd() {
 
   async function onSubmit(values: FormValues) {
     setSubmitError(null);
+    const extra: Record<string, unknown> = {};
+    if (isExternal && values.kind === "expense") {
+      extra.external_treatment = treatment;
+      if (treatment === "owe" && oweTo) extra.owed_to_person_id = Number(oweTo);
+    } else if (values.kind === "expense" && splits.length > 0) {
+      extra.is_shared = true;
+      extra.shares = splits
+        .filter((s) => s.person_id && s.share_amount_usd)
+        .map((s) => ({
+          person_id: Number(s.person_id),
+          share_amount_usd: s.share_amount_usd,
+        }));
+    }
     try {
       await create.mutateAsync({
         amount: values.amount,
@@ -128,10 +165,13 @@ export function QuickAdd() {
         kind: values.kind,
         category_id: values.category_id ? Number(values.category_id) : null,
         date: values.date,
+        ...extra,
       });
       setLastSaved(
         `${formatMoney(values.amount, values.currency)} — ${values.kind}`,
       );
+      setSplits([]);
+      setOweTo("");
       reset({
         ...values,
         amount: "",
@@ -213,6 +253,122 @@ export function QuickAdd() {
                 ))}
               </Select>
             </Field>
+
+            {kind === "expense" && isExternal && (
+              <Field>
+                <FieldLabel>This isn’t my card</FieldLabel>
+                <KindToggle>
+                  <KindOption
+                    type="button"
+                    $active={treatment === "gift"}
+                    onClick={() => setTreatment("gift")}
+                  >
+                    It’s a gift
+                  </KindOption>
+                  <KindOption
+                    type="button"
+                    $active={treatment === "owe"}
+                    onClick={() => setTreatment("owe")}
+                  >
+                    I owe it back
+                  </KindOption>
+                </KindToggle>
+                {treatment === "owe" && (
+                  <Select
+                    aria-label="Owe to"
+                    value={oweTo}
+                    onChange={(e) => setOweTo(e.target.value)}
+                  >
+                    <option value="">
+                      {selectedAccount?.owner_person_id
+                        ? "card owner"
+                        : "Who do you owe?"}
+                    </option>
+                    {otherPeople.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+                <Muted>
+                  {treatment === "gift"
+                    ? "Counts in category spending, but not against your budget or balance."
+                    : "Counts as your spending and as money you owe them."}
+                </Muted>
+              </Field>
+            )}
+
+            {kind === "expense" && !isExternal && otherPeople.length > 0 && (
+              <Field>
+                <FieldLabel>Split with someone</FieldLabel>
+                <Stack $gap="sm">
+                  {splits.map((s, i) => (
+                    <Row key={i} $gap="sm">
+                      <Select
+                        aria-label="Person"
+                        value={s.person_id}
+                        onChange={(e) =>
+                          setSplits(
+                            splits.map((x, j) =>
+                              j === i
+                                ? { ...x, person_id: e.target.value }
+                                : x,
+                            ),
+                          )
+                        }
+                      >
+                        <option value="">Person…</option>
+                        {otherPeople.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </Select>
+                      <Input
+                        inputMode="decimal"
+                        placeholder="their share (USD)"
+                        value={s.share_amount_usd}
+                        onChange={(e) =>
+                          setSplits(
+                            splits.map((x, j) =>
+                              j === i
+                                ? { ...x, share_amount_usd: e.target.value }
+                                : x,
+                            ),
+                          )
+                        }
+                      />
+                      <GhostButton
+                        type="button"
+                        aria-label="Remove split"
+                        onClick={() =>
+                          setSplits(splits.filter((_, j) => j !== i))
+                        }
+                      >
+                        ×
+                      </GhostButton>
+                    </Row>
+                  ))}
+                  <GhostButton
+                    type="button"
+                    onClick={() =>
+                      setSplits([
+                        ...splits,
+                        { person_id: "", share_amount_usd: "" },
+                      ])
+                    }
+                  >
+                    Add a person
+                  </GhostButton>
+                  {splits.length > 0 && (
+                    <Muted>
+                      Your reported spend is the amount minus their shares.
+                    </Muted>
+                  )}
+                </Stack>
+              </Field>
+            )}
 
             <Field>
               <FieldLabel htmlFor="date">Date</FieldLabel>

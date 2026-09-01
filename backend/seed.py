@@ -63,7 +63,7 @@ PEOPLE = [
 
 ACCOUNTS = [
     # name, institution, kind, currency, opening_balance, color, statement_day, due_day
-    ("Wise BRL", "Wise", AccountKind.checking, Currency.BRL, "150000.00", "#37517e", None, None),
+    ("Wise BRL", "Wise", AccountKind.checking, Currency.BRL, "20000.00", "#37517e", None, None),
     ("Wise USD", "Wise", AccountKind.checking, Currency.USD, "900.00", "#2f7d5b", None, None),
     ("Chase Checking", "Chase", AccountKind.checking, Currency.USD, "3200.00", "#117ac9", None, None),
     ("Amex", "American Express", AccountKind.credit_card, Currency.USD, "0.00", "#2e77bb", 3, 25),
@@ -357,9 +357,20 @@ def _seed_transactions(
     rng = random.Random(7)
     roommates = [people["Marina (roommate)"], people["Theo (roommate)"]]
 
-    # The year's funding lands as a lump sum at the start (already in the
-    # Wise BRL opening balance). Each month a chunk is converted to USD, and
-    # a small TA stipend comes in.
+    # The year's grant lands as a lump sum in the Wise BRL account.
+    _add_txn(
+        db,
+        day=START,
+        account=acct["Wise BRL"],
+        kind=TransactionKind.income,
+        direction=TransactionDirection.in_,
+        amount=Decimal("130000.00"),
+        category=cats["Funding"],
+        merchant="CAPES scholarship",
+        notes="year's funding",
+    )
+
+    # Each month a chunk is converted to USD, and a small TA stipend comes in.
     for month in _months(START, END):
         stipend_day = month.replace(day=15)
         if START <= stipend_day <= END:

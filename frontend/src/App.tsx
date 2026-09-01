@@ -5,12 +5,14 @@ import { useAuth } from "./auth/AuthContext";
 import { Budget } from "./pages/Budget";
 import { Home } from "./pages/Home";
 import { Import } from "./pages/Import";
+import { Income } from "./pages/Income";
 import { Login } from "./pages/Login";
+import { People } from "./pages/People";
 import { QuickAdd } from "./pages/QuickAdd";
 import { Review } from "./pages/Review";
 import { Settings } from "./pages/Settings";
 import { Transactions } from "./pages/Transactions";
-import { Income, People, Transfers } from "./pages/placeholders";
+import { Transfers } from "./pages/Transfers";
 
 export function App() {
   const { isAuthenticated } = useAuth();

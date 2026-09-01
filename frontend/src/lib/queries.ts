@@ -8,19 +8,26 @@ import { api, apiForm } from "./api";
 import type {
   Account,
   ByCategory,
+  CardPanel,
   CashflowMonth,
   Category,
   DashboardBalances,
   DashboardOverview,
   ImportCommitResult,
   ImportPreview,
+  IncomeSummary,
   MerchantRule,
   MonthBudget,
+  Person,
+  PersonBalance,
   PlanConfig,
   Projection,
+  RecurringRule,
   ReviewQueue,
   Transaction,
   TransactionPage,
+  Transfer,
+  TransferSummary,
 } from "./types";
 
 // ---------------------------------------------------------------- accounts
@@ -38,6 +45,9 @@ function invalidateLedger(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["dashboard"] });
   qc.invalidateQueries({ queryKey: ["review-queue"] });
   qc.invalidateQueries({ queryKey: ["budgets"] });
+  qc.invalidateQueries({ queryKey: ["people"] });
+  qc.invalidateQueries({ queryKey: ["transfers"] });
+  qc.invalidateQueries({ queryKey: ["income"] });
 }
 
 export function useSaveAccount() {
@@ -402,5 +412,167 @@ export function useReviewQueue() {
   return useQuery({
     queryKey: ["review-queue"],
     queryFn: () => api<ReviewQueue>("/api/imports/review-queue"),
+  });
+}
+
+// ------------------------------------------------------------------ people
+
+export function usePeople() {
+  return useQuery({
+    queryKey: ["people", "list"],
+    queryFn: () => api<Person[]>("/api/people"),
+  });
+}
+
+export function usePeopleBalances() {
+  return useQuery({
+    queryKey: ["people", "balances"],
+    queryFn: () => api<PersonBalance[]>("/api/people/balances"),
+  });
+}
+
+export function useSavePerson() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id?: number } & Record<string, unknown>) => {
+      const { id, ...body } = input;
+      return id
+        ? api<Person>(`/api/people/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          })
+        : api<Person>("/api/people", {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["people"] }),
+  });
+}
+
+export function useDeletePerson() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      api<void>(`/api/people/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["people"] }),
+  });
+}
+
+export function useSettlePerson() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, account_id }: { id: number; account_id: number }) =>
+      api<Transaction>(`/api/people/${id}/settle`, {
+        method: "POST",
+        body: JSON.stringify({ account_id }),
+      }),
+    onSuccess: () => invalidateLedger(qc),
+  });
+}
+
+// --------------------------------------------------------------- transfers
+
+export function useTransfers() {
+  return useQuery({
+    queryKey: ["transfers", "list"],
+    queryFn: () => api<Transfer[]>("/api/transfers"),
+  });
+}
+
+export function useTransferSummary() {
+  return useQuery({
+    queryKey: ["transfers", "summary"],
+    queryFn: () => api<TransferSummary>("/api/transfers/summary"),
+  });
+}
+
+export function useCreateTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      api<Transfer>("/api/transfers", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => invalidateLedger(qc),
+  });
+}
+
+export function useDeleteTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      api<void>(`/api/transfers/${id}`, { method: "DELETE" }),
+    onSuccess: () => invalidateLedger(qc),
+  });
+}
+
+// --------------------------------------------------------- recurring rules
+
+export function useRecurringRules() {
+  return useQuery({
+    queryKey: ["recurring-rules"],
+    queryFn: () => api<RecurringRule[]>("/api/recurring-rules"),
+  });
+}
+
+export function useSaveRecurringRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id?: number } & Record<string, unknown>) => {
+      const { id, ...body } = input;
+      return id
+        ? api<RecurringRule>(`/api/recurring-rules/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          })
+        : api<RecurringRule>("/api/recurring-rules", {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-rules"] }),
+  });
+}
+
+export function useDeleteRecurringRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      api<void>(`/api/recurring-rules/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["recurring-rules"] }),
+  });
+}
+
+export function useRunRecurringRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      api<{ generated: number }>(`/api/recurring-rules/${id}/run`, {
+        method: "POST",
+      }),
+    onSuccess: () => {
+      invalidateLedger(qc);
+      qc.invalidateQueries({ queryKey: ["recurring-rules"] });
+    },
+  });
+}
+
+// ------------------------------------------------------------------ income
+
+export function useIncomeSummary() {
+  return useQuery({
+    queryKey: ["income", "summary"],
+    queryFn: () => api<IncomeSummary>("/api/income/summary"),
+  });
+}
+
+// ------------------------------------------------------------------- cards
+
+export function useCards() {
+  return useQuery({
+    queryKey: ["dashboard", "cards"],
+    queryFn: () => api<CardPanel[]>("/api/dashboard/cards"),
   });
 }
