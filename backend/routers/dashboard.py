@@ -7,11 +7,10 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.deps import require_auth
-from backend.models.account import Account
 from backend.models.category import Category
-from backend.money import ZERO, money, money_str
+from backend.money import ZERO, money
 from backend.schemas.common import ApiModel, MoneyStr
-from backend.services.balances import balance_in_usd, native_balances
+from backend.services.balances import account_balances, net_worth
 from backend.services.runway import (
     compute_overview,
     get_plan_config,
@@ -54,32 +53,23 @@ class BalancesOut(ApiModel):
 
 @router.get("/balances", response_model=BalancesOut)
 def balances(db: Session = Depends(get_db)) -> BalancesOut:
-    native = native_balances(db)
-    accounts = (
-        db.execute(select(Account).order_by(Account.sort_order, Account.name))
-        .scalars()
-        .all()
-    )
-    rows: list[AccountBalance] = []
-    net_worth = ZERO
-    for account in accounts:
-        bal = native.get(account.id, ZERO)
-        usd = balance_in_usd(db, account.currency.value, bal)
-        rows.append(
+    rows = account_balances(db)
+    return BalancesOut(
+        net_worth_usd=net_worth(rows),
+        accounts=[
             AccountBalance(
-                id=account.id,
-                name=account.name,
-                institution=account.institution,
-                currency=account.currency.value,
-                kind=account.kind.value,
-                is_owned=account.is_owned,
-                balance=bal,
-                balance_usd=usd,
+                id=r.account.id,
+                name=r.account.name,
+                institution=r.account.institution,
+                currency=r.account.currency.value,
+                kind=r.account.kind.value,
+                is_owned=r.account.is_owned,
+                balance=r.native,
+                balance_usd=r.usd,
             )
-        )
-        if account.is_owned:
-            net_worth += usd
-    return BalancesOut(net_worth_usd=money_str(net_worth), accounts=rows)
+            for r in rows
+        ],
+    )
 
 
 # ------------------------------------------------------------------ overview

@@ -1,10 +1,11 @@
 """Account balances — always computed, never stored (spec invariant 5).
 
-    balance_native = opening_balance + Σ(inflows) − Σ(outflows)
-    balance_usd    = balance_native converted to USD at today's rate
+    balance_native = opening_balance + Σ(inflows) − Σ(outflows)   [as of a date]
+    balance_usd    = balance_native converted to USD at that date's rate
 """
 
 import datetime as dt
+from dataclasses import dataclass
 from decimal import Decimal
 
 from sqlalchemy import case, func, select
@@ -13,8 +14,8 @@ from sqlalchemy.orm import Session
 from backend.models.account import Account
 from backend.models.enums import TransactionDirection
 from backend.models.transaction import Transaction
-from backend.money import ZERO, money
-from backend.services.fx import convert_to_usd
+from backend.money import ONE, ZERO, money
+from backend.services.fx import convert_to_usd, get_rate
 
 
 def _signed_movement(db: Session, as_of: dt.date) -> dict[int, Decimal]:
@@ -62,3 +63,47 @@ def balance_in_usd(
     return convert_to_usd(
         db, native_balance, currency, on_date or dt.date.today()
     ).amount_usd
+
+
+@dataclass
+class AccountBalance:
+    account: Account
+    native: Decimal
+    usd: Decimal
+
+
+def account_balances(
+    db: Session, as_of: dt.date | None = None
+) -> list[AccountBalance]:
+    """Every account with its native and USD balance, ordered for display.
+
+    Each currency's rate to USD is resolved once, not per account.
+    """
+    as_of = as_of or dt.date.today()
+    native = native_balances(db, as_of)
+    accounts = (
+        db.execute(select(Account).order_by(Account.sort_order, Account.name))
+        .scalars()
+        .all()
+    )
+
+    rates: dict[str, Decimal] = {"USD": ONE}
+    for currency in {a.currency.value for a in accounts} - {"USD"}:
+        rates[currency] = get_rate(db, as_of, currency, "USD") or ONE
+
+    rows: list[AccountBalance] = []
+    for account in accounts:
+        bal = native.get(account.id, ZERO)
+        rows.append(
+            AccountBalance(
+                account=account,
+                native=bal,
+                usd=money(bal * rates[account.currency.value]),
+            )
+        )
+    return rows
+
+
+def net_worth(rows: list[AccountBalance]) -> Decimal:
+    """Σ USD balances of owned accounts (external accounts excluded)."""
+    return money(sum((r.usd for r in rows if r.account.is_owned), ZERO))

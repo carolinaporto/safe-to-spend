@@ -15,13 +15,11 @@ import datetime as dt
 from dataclasses import dataclass
 from decimal import Decimal
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from backend.models.account import Account
 from backend.models.plan_config import PLAN_CONFIG_ID, PlanConfig
 from backend.money import ZERO, money, to_decimal
-from backend.services.balances import balance_in_usd, native_balances
+from backend.services.balances import account_balances, net_worth
 from backend.services.spending import (
     month_end,
     month_start,
@@ -61,14 +59,7 @@ def future_committed_costs(
 
 
 def net_worth_usd(db: Session, on_date: dt.date) -> Decimal:
-    native = native_balances(db, as_of=on_date)
-    owned = db.execute(select(Account).where(Account.kind != "external")).scalars()
-    total = ZERO
-    for account in owned:
-        total += balance_in_usd(
-            db, account.currency.value, native.get(account.id, ZERO), on_date
-        )
-    return money(total)
+    return net_worth(account_balances(db, as_of=on_date))
 
 
 @dataclass

@@ -7,32 +7,40 @@ from backend.deps import deny_in_demo, require_auth
 from backend.models.account import Account
 from backend.models.transaction import Transaction
 from backend.schemas.account import AccountCreate, AccountOut, AccountUpdate
-from backend.services.balances import balance_in_usd, native_balances
+from backend.services.balances import AccountBalance, account_balances
 
 router = APIRouter(
     prefix="/api/accounts", tags=["accounts"], dependencies=[Depends(require_auth)]
 )
 
 
-def _to_out(account: Account, native: dict[int, object], db: Session) -> AccountOut:
-    balance = native.get(account.id)
+_COMPUTED = {"is_owned", "balance", "balance_usd"}
+
+
+def _out(row: AccountBalance) -> AccountOut:
+    stored = {
+        name: getattr(row.account, name)
+        for name in AccountOut.model_fields
+        if name not in _COMPUTED
+    }
     return AccountOut(
-        **{c.name: getattr(account, c.name) for c in Account.__table__.columns},
-        is_owned=account.is_owned,
-        balance=balance,
-        balance_usd=balance_in_usd(db, account.currency.value, balance),
+        **stored,
+        is_owned=row.account.is_owned,
+        balance=row.native,
+        balance_usd=row.usd,
     )
+
+
+def _one(db: Session, account_id: int) -> AccountOut:
+    for row in account_balances(db):
+        if row.account.id == account_id:
+            return _out(row)
+    raise HTTPException(status.HTTP_404_NOT_FOUND, "account not found")
 
 
 @router.get("", response_model=list[AccountOut])
 def list_accounts(db: Session = Depends(get_db)) -> list[AccountOut]:
-    accounts = (
-        db.execute(select(Account).order_by(Account.sort_order, Account.name))
-        .scalars()
-        .all()
-    )
-    native = native_balances(db)
-    return [_to_out(a, native, db) for a in accounts]
+    return [_out(row) for row in account_balances(db)]
 
 
 @router.post("", response_model=AccountOut, status_code=status.HTTP_201_CREATED)
@@ -42,8 +50,7 @@ def create_account(
     account = Account(**body.model_dump())
     db.add(account)
     db.commit()
-    db.refresh(account)
-    return _to_out(account, native_balances(db), db)
+    return _one(db, account.id)
 
 
 @router.patch("/{account_id}", response_model=AccountOut)
@@ -56,8 +63,7 @@ def update_account(
     for field, value in body.model_dump(exclude_unset=True).items():
         setattr(account, field, value)
     db.commit()
-    db.refresh(account)
-    return _to_out(account, native_balances(db), db)
+    return _one(db, account_id)
 
 
 @router.delete(
