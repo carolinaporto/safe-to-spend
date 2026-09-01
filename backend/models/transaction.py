@@ -52,9 +52,6 @@ class Transaction(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     notes: Mapped[str] = mapped_column(Text, default="")
 
-    paid_by_person_id: Mapped[int | None] = mapped_column(
-        ForeignKey("people.id", ondelete="SET NULL")
-    )
     is_shared: Mapped[bool] = mapped_column(default=False)
     is_reimbursable: Mapped[bool] = mapped_column(default=False)
     excluded_from_my_budget: Mapped[bool] = mapped_column(default=False)
