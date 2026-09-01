@@ -4,9 +4,10 @@ Idempotent: wipes the ledger tables and refills them. Safe to run repeatedly.
 
     python -m backend.seed
 
-Note: transfers between accounts are modelled here as paired ``adjustment``
-rows (money out of one account, money in to another at the day's FX rate).
-Phase 4 replaces these with real linked transfers plus FX-cost tracking.
+Cross-account movements are real linked transfers (two ledger legs plus an
+FX-cost row). Rent is logged in full with the roommates' slices as
+expense_shares, and a couple of purchases sit on Dad's external card as
+"I owe it back" liabilities.
 """
 
 import datetime as dt
@@ -25,18 +26,23 @@ from backend.models.enums import (
     Currency,
     MerchantMatchType,
     PersonRole,
+    RecurringFrequency,
     TransactionDirection,
     TransactionKind,
     TransactionSource,
 )
+from backend.models.expense_share import ExpenseShare
 from backend.models.fx_rate import FxRate
 from backend.models.merchant_rule import MerchantRule
 from backend.models.person import Person
 from backend.models.plan_config import PLAN_CONFIG_ID, PlanConfig
+from backend.models.recurring_rule import RecurringRule
 from backend.models.transaction import Transaction
+from backend.models.transfer import Transfer
 from backend.money import money
 from backend.reset import wipe_ledger
 from backend.services.fx import convert_to_usd
+from backend.services.transfers import TransferInput, build_transfer
 
 
 def _months_back(date: dt.date, n: int) -> dt.date:
@@ -154,11 +160,19 @@ def _wipe(db: Session) -> None:
     wipe_ledger(db)
 
 
-def _seed_people(db: Session) -> None:
-    db.add_all([Person(name=n, role=r) for n, r in PEOPLE])
+def _seed_people(db: Session) -> dict[str, Person]:
+    by_name: dict[str, Person] = {}
+    for name, role in PEOPLE:
+        person = Person(name=name, role=role)
+        db.add(person)
+        by_name[name] = person
+    db.flush()
+    return by_name
 
 
-def _seed_accounts(db: Session) -> dict[str, Account]:
+def _seed_accounts(
+    db: Session, people: dict[str, Person]
+) -> dict[str, Account]:
     by_name: dict[str, Account] = {}
     for order, row in enumerate(ACCOUNTS):
         name, inst, kind, cur, opening, color, sday, dday = row
@@ -173,6 +187,9 @@ def _seed_accounts(db: Session) -> dict[str, Account]:
             statement_day=sday,
             due_day=dday,
             sort_order=order,
+            owner_person_id=(
+                people["Dad"].id if name == "Dad's Card" else None
+            ),
         )
         db.add(account)
         by_name[name] = account
@@ -235,10 +252,110 @@ def _add_txn(
     )
 
 
+MY_RENT_SHARE = Decimal("1300.00")
+
+
+def _add_shared_rent(
+    db: Session,
+    day: dt.date,
+    account: Account,
+    cats: dict[str, Category],
+    roommates: list[Person],
+) -> None:
+    """Full rent on my account; each roommate's third is an expense_share, so
+    my reported spend is just my own slice."""
+    full = MY_RENT_SHARE * (len(roommates) + 1)
+    conversion = convert_to_usd(db, full, account.currency.value, day)
+    txn = Transaction(
+        date=day,
+        account_id=account.id,
+        kind=TransactionKind.expense,
+        direction=TransactionDirection.out,
+        amount=money(full),
+        currency=account.currency.value,
+        fx_rate_to_usd=conversion.rate,
+        amount_usd=conversion.amount_usd,
+        category_id=cats["Rent"].id,
+        merchant_raw="BEACON ST APARTMENTS",
+        merchant_clean="Beacon St Apartments",
+        is_shared=True,
+        source=TransactionSource.manual,
+        shares=[
+            ExpenseShare(person_id=mate.id, share_amount_usd=MY_RENT_SHARE)
+            for mate in roommates
+        ],
+    )
+    db.add(txn)
+
+
+def _add_owe_purchase(
+    db: Session,
+    *,
+    day: dt.date,
+    account: Account,
+    category: Category,
+    amount: Decimal,
+    merchant: str,
+    owner: Person,
+) -> None:
+    """A purchase on someone else's card that I intend to pay back — counts
+    as my spending and as a liability against the card's owner."""
+    conversion = convert_to_usd(db, amount, account.currency.value, day)
+    db.add(
+        Transaction(
+            date=day,
+            account_id=account.id,
+            kind=TransactionKind.expense,
+            direction=TransactionDirection.out,
+            amount=money(amount),
+            currency=account.currency.value,
+            fx_rate_to_usd=conversion.rate,
+            amount_usd=conversion.amount_usd,
+            category_id=category.id,
+            merchant_raw=merchant.upper(),
+            merchant_clean=merchant,
+            source=TransactionSource.manual,
+            shares=[
+                ExpenseShare(
+                    person_id=owner.id,
+                    share_amount_usd=conversion.amount_usd,
+                )
+            ],
+        )
+    )
+
+
+def _add_transfer(
+    db: Session,
+    *,
+    day: dt.date,
+    src: Account,
+    dst: Account,
+    amount_out: Decimal,
+    amount_in: Decimal,
+    provider: str,
+) -> None:
+    build_transfer(
+        db,
+        TransferInput(
+            date=day,
+            from_account_id=src.id,
+            to_account_id=dst.id,
+            amount_out=money(amount_out),
+            amount_in=money(amount_in),
+            provider=provider,
+        ),
+    )
+
+
 def _seed_transactions(
-    db: Session, acct: dict[str, Account], cats: dict[str, Category]
+    db: Session,
+    acct: dict[str, Account],
+    cats: dict[str, Category],
+    people: dict[str, Person],
 ) -> None:
     rng = random.Random(7)
+    roommates = [people["Marina (roommate)"], people["Theo (roommate)"]]
 
     # The year's funding lands as a lump sum at the start (already in the
     # Wise BRL opening balance). Each month a chunk is converted to USD, and
@@ -261,61 +378,32 @@ def _seed_transactions(
         if fund_day <= END:
             rate = convert_to_usd(db, Decimal("1"), "BRL", fund_day).rate
             brl_out = Decimal("14000.00")
-            usd_in = (brl_out * rate).quantize(Decimal("0.01"))
-            _add_txn(
+            # Wise keeps a slice: land a touch less than the mid-market value.
+            usd_in = (brl_out * rate * Decimal("0.992")).quantize(Decimal("0.01"))
+            _add_transfer(
                 db,
                 day=fund_day,
-                account=acct["Wise BRL"],
-                kind=TransactionKind.adjustment,
-                direction=TransactionDirection.out,
-                amount=brl_out,
-                merchant="Wise conversion BRL->USD",
-                notes="transfer leg (real transfers arrive in Phase 4)",
-            )
-            _add_txn(
-                db,
-                day=fund_day,
-                account=acct["Chase Checking"],
-                kind=TransactionKind.adjustment,
-                direction=TransactionDirection.in_,
-                amount=usd_in,
-                merchant="Wise conversion BRL->USD",
-                notes="transfer leg (real transfers arrive in Phase 4)",
+                src=acct["Wise BRL"],
+                dst=acct["Chase Checking"],
+                amount_out=brl_out,
+                amount_in=usd_in,
+                provider="Wise",
             )
 
         rent_day = max(START, month.replace(day=1))
         if rent_day <= END and rent_day > START + dt.timedelta(days=1):
-            _add_txn(
-                db,
-                day=rent_day,
-                account=acct["Chase Checking"],
-                kind=TransactionKind.expense,
-                direction=TransactionDirection.out,
-                amount=Decimal("1300.00"),
-                category=cats["Rent"],
-                merchant="Beacon St Apartments",
-                notes="my share of a 3-way split (full split lands in Phase 4)",
-            )
+            _add_shared_rent(db, rent_day, acct["Chase Checking"], cats, roommates)
 
         atm_day = month.replace(day=6)
         if START <= atm_day <= END:
-            _add_txn(
+            _add_transfer(
                 db,
                 day=atm_day,
-                account=acct["Chase Checking"],
-                kind=TransactionKind.adjustment,
-                direction=TransactionDirection.out,
-                amount=Decimal("220.00"),
-                merchant="ATM withdrawal",
-            )
-            _add_txn(
-                db,
-                day=atm_day,
-                account=acct["Cash"],
-                kind=TransactionKind.adjustment,
-                direction=TransactionDirection.in_,
-                amount=Decimal("220.00"),
-                merchant="ATM withdrawal",
+                src=acct["Chase Checking"],
+                dst=acct["Cash"],
+                amount_out=Decimal("220.00"),
+                amount_in=Decimal("220.00"),
+                provider="ATM",
             )
 
     for offset, (cat_name, merchant, amount, account_name) in enumerate(SETUP_PURCHASES):
@@ -330,6 +418,25 @@ def _seed_transactions(
                 amount=Decimal(amount),
                 category=cats[cat_name],
                 merchant=merchant,
+            )
+
+    # A couple of things Dad put on his card that I owe back.
+    for offset, (cat_name, merchant, amount) in enumerate(
+        [
+            ("Electronics", "Apple Store", "349.00"),
+            ("Health/Insurance", "MIT Medical", "120.00"),
+        ]
+    ):
+        day = START + dt.timedelta(days=20 + offset * 30)
+        if day <= END:
+            _add_owe_purchase(
+                db,
+                day=day,
+                account=acct["Dad's Card"],
+                category=cats[cat_name],
+                amount=Decimal(amount),
+                merchant=merchant,
+                owner=people["Dad"],
             )
 
     card_accounts = [acct["Amex"], acct["Chase Checking"]]
@@ -364,6 +471,39 @@ def _seed_transactions(
                 merchant=rng.choice(merchants),
             )
 
+    db.flush()
+
+
+def _seed_recurring_rules(
+    db: Session, acct: dict[str, Account], cats: dict[str, Category]
+) -> None:
+    """Templates for the predictable monthly movements. History is already
+    seeded, so last_generated_date is pinned to END — the cron job picks up
+    from the next occurrence forward."""
+    chase = acct["Chase Checking"]
+    rows = [
+        # name, category, amount, day_of_month, is_income
+        ("Rent (my share)", "Rent", "1300.00", 1, False),
+        ("Spotify", "Subscriptions", "11.99", 7, False),
+        ("Netflix", "Subscriptions", "15.49", 12, False),
+        ("Renters insurance", "Health/Insurance", "22.00", 5, False),
+        ("Harvard TA stipend", "Work", "430.00", 15, True),
+    ]
+    for name, cat, amount, dom, is_income in rows:
+        db.add(
+            RecurringRule(
+                name=name,
+                account_id=chase.id,
+                category_id=cats[cat].id,
+                amount=Decimal(amount),
+                currency=chase.currency.value,
+                frequency=RecurringFrequency.monthly,
+                day_of_month=dom,
+                start_date=START,
+                last_generated_date=END,
+                is_income=is_income,
+            )
+        )
     db.flush()
 
 
@@ -472,11 +612,12 @@ def seed() -> dict[str, int]:
     db = SessionLocal()
     try:
         _wipe(db)
-        _seed_people(db)
-        accounts = _seed_accounts(db)
+        people = _seed_people(db)
+        accounts = _seed_accounts(db, people)
         categories = _seed_categories(db)
         _seed_fx(db)
-        _seed_transactions(db, accounts, categories)
+        _seed_transactions(db, accounts, categories, people)
+        _seed_recurring_rules(db, accounts, categories)
         _seed_plan_config(db)
         _seed_budgets(db, categories)
         _seed_merchant_rules(db, categories)
@@ -487,6 +628,9 @@ def seed() -> dict[str, int]:
             "categories": db.query(Category).count(),
             "fx_rates": db.query(FxRate).count(),
             "transactions": db.query(Transaction).count(),
+            "transfers": db.query(Transfer).count(),
+            "expense_shares": db.query(ExpenseShare).count(),
+            "recurring_rules": db.query(RecurringRule).count(),
             "budgets": db.query(Budget).count(),
             "merchant_rules": db.query(MerchantRule).count(),
         }

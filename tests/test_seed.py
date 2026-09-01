@@ -20,6 +20,47 @@ def test_seed_produces_a_realistic_dataset() -> None:
     assert counts["fx_rates"] > 100
     assert counts["budgets"] > 0
     assert counts["merchant_rules"] > 0
+    assert counts["transfers"] > 0
+    assert counts["expense_shares"] > 0
+    assert counts["recurring_rules"] == 5
+
+
+def test_seed_wires_up_phase_4_relationships() -> None:
+    seed()
+    db = SessionLocal()
+    try:
+        from backend.models.expense_share import ExpenseShare
+        from backend.models.transfer import Transfer
+
+        # Dad's external card has an owner and carries "I owe it back" slices.
+        dad = db.query(Person).filter(Person.name == "Dad").one()
+        card = db.query(Account).filter(Account.name == "Dad's Card").one()
+        assert card.owner_person_id == dad.id
+
+        # Every transfer's two legs net to zero movement across the ledger in
+        # USD terms only loosely (FX), but each has a positive recorded cost
+        # field and a matching pair of transaction legs.
+        for t in db.query(Transfer):
+            legs = (
+                db.query(Transaction)
+                .filter(Transaction.transfer_group_id == t.transfer_group_id)
+                .count()
+            )
+            assert legs == 2
+
+        # Shared rent: my reported slice is less than the full charge.
+        shared = (
+            db.query(Transaction).filter(Transaction.is_shared.is_(True)).first()
+        )
+        assert shared is not None
+        others = (
+            db.query(ExpenseShare)
+            .filter(ExpenseShare.transaction_id == shared.id)
+            .count()
+        )
+        assert others == 2
+    finally:
+        db.close()
 
 
 def test_seed_is_idempotent() -> None:

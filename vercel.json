@@ -14,6 +14,7 @@
   ],
   "crons": [
     { "path": "/api/cron/fetch-fx", "schedule": "0 9 * * *" },
+    { "path": "/api/cron/generate-recurring", "schedule": "0 7 * * *" },
     { "path": "/api/cron/backup", "schedule": "0 8 * * 1" }
   ]
 }

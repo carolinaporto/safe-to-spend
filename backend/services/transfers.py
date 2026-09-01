@@ -54,7 +54,10 @@ def _account(db: Session, account_id: int, label: str) -> Account:
     return account
 
 
-def create_transfer(db: Session, data: TransferInput) -> Transfer:
+def build_transfer(db: Session, data: TransferInput) -> Transfer:
+    """Create the two ledger legs and the metadata row and ``add`` them to the
+    session, without committing. Callers that want a standalone operation use
+    :func:`create_transfer`."""
     if data.from_account_id == data.to_account_id:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -142,6 +145,12 @@ def create_transfer(db: Session, data: TransferInput) -> Transfer:
         notes=data.notes,
     )
     db.add_all([out_leg, in_leg, transfer])
+    db.flush()
+    return transfer
+
+
+def create_transfer(db: Session, data: TransferInput) -> Transfer:
+    transfer = build_transfer(db, data)
     db.commit()
     db.refresh(transfer)
     return transfer
