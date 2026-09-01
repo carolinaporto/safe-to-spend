@@ -1,13 +1,14 @@
 """Runway and safe-to-spend (spec section 4.5).
 
     net_worth_usd    = Σ owned-account balances (BRL at today's rate)
+                       + receivables from other people
+                       − liabilities owed
     available        = net_worth_usd − emergency_reserve − future_committed_costs
     monthly_ceiling  = available / months_remaining
     mtd_spend        = Σ this month's consumption (setup excluded from the pace)
     daily_allowance  = (monthly_ceiling − mtd_spend) / days_left_in_month
 
-Receivables, credit-card statements and owed liabilities are Phase 4; until
-then net worth already reflects negative credit-card balances directly.
+Open credit-card statements are already reflected as negative card balances.
 """
 
 import calendar
@@ -20,6 +21,7 @@ from sqlalchemy.orm import Session
 from backend.models.plan_config import PLAN_CONFIG_ID, PlanConfig
 from backend.money import ZERO, money, to_decimal
 from backend.services.balances import account_balances, net_worth
+from backend.services.people import total_liabilities, total_receivables
 from backend.services.spending import (
     month_end,
     month_start,
@@ -64,7 +66,8 @@ def future_committed_costs(
 
 
 def net_worth_usd(db: Session, on_date: dt.date) -> Decimal:
-    return net_worth(account_balances(db, as_of=on_date))
+    accounts = net_worth(account_balances(db, as_of=on_date))
+    return money(accounts + total_receivables(db) - total_liabilities(db))
 
 
 @dataclass
@@ -84,6 +87,8 @@ class Overview:
     projected_month_end_spend_usd: Decimal
     traffic_light: str
     runway_days: int | None
+    receivables_usd: Decimal
+    liabilities_usd: Decimal
 
 
 def _traffic_light(projected: Decimal, ceiling: Decimal) -> str:
@@ -101,6 +106,8 @@ def compute_overview(db: Session, today: dt.date | None = None) -> Overview:
     today = today or dt.date.today()
     config = get_plan_config(db)
 
+    receivables = total_receivables(db)
+    liabilities = total_liabilities(db)
     nw = net_worth_usd(db, today)
     reserve = money(config.emergency_reserve_usd)
     committed = future_committed_costs(config, today)
@@ -151,4 +158,6 @@ def compute_overview(db: Session, today: dt.date | None = None) -> Overview:
         projected_month_end_spend_usd=projected,
         traffic_light=_traffic_light(projected, monthly_ceiling),
         runway_days=runway_days,
+        receivables_usd=receivables,
+        liabilities_usd=liabilities,
     )

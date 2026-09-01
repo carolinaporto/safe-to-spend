@@ -19,6 +19,7 @@ class AccountCreate(BaseModel):
     icon: str = Field(default="", max_length=40)
     is_active: bool = True
     sort_order: int = 0
+    owner_person_id: int | None = None
 
 
 class AccountUpdate(BaseModel):
@@ -34,6 +35,7 @@ class AccountUpdate(BaseModel):
     icon: str | None = Field(default=None, max_length=40)
     is_active: bool | None = None
     sort_order: int | None = None
+    owner_person_id: int | None = None
 
 
 class AccountOut(ApiModel):
@@ -50,6 +52,7 @@ class AccountOut(ApiModel):
     icon: str
     is_active: bool
     sort_order: int
+    owner_person_id: int | None
     is_owned: bool
     balance: MoneyStr
     balance_usd: MoneyStr

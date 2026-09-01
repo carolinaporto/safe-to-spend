@@ -67,3 +67,14 @@ class PersonRole(StrEnum):
 class MerchantMatchType(StrEnum):
     contains = "contains"
     regex = "regex"
+
+
+class RecurringFrequency(StrEnum):
+    weekly = "weekly"
+    monthly = "monthly"
+    yearly = "yearly"
+
+
+class ExternalTreatment(StrEnum):
+    gift = "gift"
+    owe = "owe"

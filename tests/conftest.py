@@ -44,7 +44,8 @@ def _clean_tables() -> None:
             text(
                 "TRUNCATE transactions, fx_rates, accounts, categories, "
                 "people, login_attempts, budgets, plan_config, "
-                "merchant_rules, import_batches RESTART IDENTITY CASCADE"
+                "merchant_rules, import_batches, transfers, expense_shares, "
+                "recurring_rules RESTART IDENTITY CASCADE"
             )
         )
     yield

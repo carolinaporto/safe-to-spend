@@ -1,8 +1,10 @@
 """Consumption-spending queries.
 
-"Spending" here means my own consumption: ``kind == expense`` outflows that
-are not excluded from my budget. Transfers, adjustments (the transfer legs),
-income and reimbursements are never counted (spec invariants 6-8).
+"Spending" is my own consumption: ``kind == expense`` outflows. Transfers,
+adjustments (transfer legs), income and reimbursements are never counted
+(invariants 6-8). For a shared expense, the slices belonging to other people
+are subtracted (invariant 8). Gifts on external cards count in the category
+*report* but not in the budget/pace (spec 4.4).
 """
 
 import calendar
@@ -12,12 +14,15 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from backend.models.account import Account
 from backend.models.category import Category
 from backend.models.enums import (
+    AccountKind,
     CategoryNature,
     TransactionDirection,
     TransactionKind,
 )
+from backend.models.expense_share import ExpenseShare
 from backend.models.transaction import Transaction
 from backend.money import ZERO, money
 
@@ -35,17 +40,44 @@ def add_months(d: dt.date, n: int) -> dt.date:
     return dt.date(index // 12, index % 12 + 1, 1)
 
 
-# Conditions that define a transaction as my consumption spending.
-def _consumption_where():
-    return (
+_MONTH = func.to_char(Transaction.date, "YYYY-MM-01")
+_SUM = func.coalesce(func.sum(Transaction.amount_usd), 0)
+_SHARE_SUM = func.coalesce(func.sum(ExpenseShare.share_amount_usd), 0)
+
+
+def _expense_where(*, exclude_from_budget_only: bool):
+    conds = [
         Transaction.kind == TransactionKind.expense,
         Transaction.direction == TransactionDirection.out.value,
-        Transaction.excluded_from_my_budget.is_(False),
+    ]
+    if exclude_from_budget_only:
+        conds.append(Transaction.excluded_from_my_budget.is_(False))
+    return tuple(conds)
+
+
+def _shares_query(date_from: dt.date, date_to: dt.date):
+    """Slices of shared expenses that belong to *other people* (money owed to
+    me), scoped to a date range. External-card liabilities are not included."""
+    return (
+        select(Transaction.category_id, _SHARE_SUM)
+        .join(ExpenseShare, ExpenseShare.transaction_id == Transaction.id)
+        .join(Account, Account.id == Transaction.account_id)
+        .where(
+            Transaction.kind == TransactionKind.expense,
+            Transaction.is_shared.is_(True),
+            Account.kind != AccountKind.external,
+            Transaction.date >= date_from,
+            Transaction.date <= date_to,
+        )
+        .group_by(Transaction.category_id)
     )
 
 
-_MONTH = func.to_char(Transaction.date, "YYYY-MM-01")
-_SUM = func.coalesce(func.sum(Transaction.amount_usd), 0)
+def _others_shares_by_category(
+    db: Session, date_from: dt.date, date_to: dt.date
+) -> dict[int | None, Decimal]:
+    rows = db.execute(_shares_query(date_from, date_to)).all()
+    return {cid: money(amount) for cid, amount in rows}
 
 
 def total_consumption(
@@ -56,7 +88,7 @@ def total_consumption(
     exclude_setup: bool = False,
 ) -> Decimal:
     stmt = select(_SUM).where(
-        *_consumption_where(),
+        *_expense_where(exclude_from_budget_only=True),
         Transaction.date >= date_from,
         Transaction.date <= date_to,
     )
@@ -68,22 +100,34 @@ def total_consumption(
             Transaction.category_id.is_(None)
             | Transaction.category_id.notin_(setup_ids)
         )
-    return money(db.scalar(stmt) or ZERO)
+    gross = money(db.scalar(stmt) or ZERO)
+    others = sum(
+        _others_shares_by_category(db, date_from, date_to).values(), ZERO
+    )
+    return money(gross - others)
 
 
 def by_category(
-    db: Session, date_from: dt.date, date_to: dt.date
+    db: Session,
+    date_from: dt.date,
+    date_to: dt.date,
+    *,
+    for_report: bool = False,
 ) -> list[tuple[int | None, Decimal]]:
     stmt = (
         select(Transaction.category_id, _SUM)
         .where(
-            *_consumption_where(),
+            *_expense_where(exclude_from_budget_only=not for_report),
             Transaction.date >= date_from,
             Transaction.date <= date_to,
         )
         .group_by(Transaction.category_id)
     )
-    return [(cid, money(amount)) for cid, amount in db.execute(stmt).all()]
+    gross = {cid: money(a) for cid, a in db.execute(stmt).all()}
+    for cid, share in _others_shares_by_category(db, date_from, date_to).items():
+        if cid in gross:
+            gross[cid] = money(gross[cid] - share)
+    return [(cid, amount) for cid, amount in gross.items()]
 
 
 def by_category_and_month(
@@ -92,14 +136,32 @@ def by_category_and_month(
     stmt = (
         select(_MONTH, Transaction.category_id, _SUM)
         .where(
-            *_consumption_where(),
+            *_expense_where(exclude_from_budget_only=False),
             Transaction.date >= date_from,
             Transaction.date <= date_to,
         )
         .group_by(_MONTH, Transaction.category_id)
         .order_by(_MONTH)
     )
-    return [(m, cid, money(a)) for m, cid, a in db.execute(stmt).all()]
+    share_stmt = (
+        select(_MONTH, Transaction.category_id, _SHARE_SUM)
+        .join(ExpenseShare, ExpenseShare.transaction_id == Transaction.id)
+        .join(Account, Account.id == Transaction.account_id)
+        .where(
+            Transaction.kind == TransactionKind.expense,
+            Transaction.is_shared.is_(True),
+            Account.kind != AccountKind.external,
+            Transaction.date >= date_from,
+            Transaction.date <= date_to,
+        )
+        .group_by(_MONTH, Transaction.category_id)
+    )
+    shares = {(m, cid): money(a) for m, cid, a in db.execute(share_stmt).all()}
+    out = []
+    for m, cid, amount in db.execute(stmt).all():
+        net = money(amount) - shares.get((m, cid), ZERO)
+        out.append((m, cid, money(net)))
+    return out
 
 
 def spend_by_nature_and_month(
@@ -109,7 +171,7 @@ def spend_by_nature_and_month(
         select(_MONTH, func.coalesce(Category.nature, "uncategorized"), _SUM)
         .join(Category, Category.id == Transaction.category_id, isouter=True)
         .where(
-            *_consumption_where(),
+            *_expense_where(exclude_from_budget_only=False),
             Transaction.date >= date_from,
             Transaction.date <= date_to,
         )

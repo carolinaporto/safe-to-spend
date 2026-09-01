@@ -1,20 +1,38 @@
 import datetime as dt
+from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 
 from backend.models.enums import (
+    ExternalTreatment,
     TransactionDirection,
     TransactionKind,
     TransactionSource,
 )
 from backend.schemas.common import ApiModel, MoneyStr, RateStr
 
-# Phase 1 records movements directly; transfers (two linked legs) land in Phase 4.
+_UuidStr = Annotated[
+    str | None, BeforeValidator(lambda v: str(v) if v is not None else None)
+]
+
+# Direct movements. Transfers (two linked legs) go through /api/transfers.
 MANUAL_KINDS = {
     TransactionKind.expense,
     TransactionKind.income,
     TransactionKind.adjustment,
 }
+
+
+class ShareIn(BaseModel):
+    person_id: int
+    share_amount_usd: MoneyStr = Field(gt=0)
+
+
+class ShareOut(ApiModel):
+    id: int
+    person_id: int
+    share_amount_usd: MoneyStr
+    settled: bool
 
 
 class TransactionCreate(BaseModel):
@@ -31,6 +49,12 @@ class TransactionCreate(BaseModel):
     is_reimbursable: bool = False
     excluded_from_my_budget: bool = False
     tags: list[str] = Field(default_factory=list)
+    # Shared expense: my share is implicit (amount − Σ these).
+    is_shared: bool = False
+    shares: list[ShareIn] = Field(default_factory=list)
+    # External-account purchase treatment (spec 4.4).
+    external_treatment: ExternalTreatment | None = None
+    owed_to_person_id: int | None = None
 
 
 class TransactionUpdate(BaseModel):
@@ -48,6 +72,8 @@ class TransactionUpdate(BaseModel):
     excluded_from_my_budget: bool | None = None
     needs_review: bool | None = None
     tags: list[str] | None = None
+    is_shared: bool | None = None
+    shares: list[ShareIn] | None = None
 
 
 class TransactionOut(ApiModel):
@@ -71,6 +97,8 @@ class TransactionOut(ApiModel):
     source: TransactionSource
     needs_review: bool
     tags: list[str]
+    transfer_group_id: _UuidStr = None
+    shares: list[ShareOut] = Field(default_factory=list)
     created_at: dt.datetime
     updated_at: dt.datetime
 

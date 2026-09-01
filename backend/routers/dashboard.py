@@ -11,6 +11,7 @@ from backend.models.category import Category
 from backend.money import ZERO, money
 from backend.schemas.common import ApiModel, MoneyStr
 from backend.services.balances import account_balances, net_worth
+from backend.services.cards import card_panels
 from backend.services.runway import (
     compute_overview,
     get_plan_config,
@@ -95,6 +96,8 @@ class OverviewOut(ApiModel):
     projected_month_end_spend_usd: MoneyStr
     traffic_light: str
     runway_days: int | None
+    receivables_usd: MoneyStr
+    liabilities_usd: MoneyStr
     month_progress: MonthProgress
 
 
@@ -121,6 +124,8 @@ def overview(db: Session = Depends(get_db)) -> OverviewOut:
         projected_month_end_spend_usd=result.projected_month_end_spend_usd,
         traffic_light=result.traffic_light,
         runway_days=result.runway_days,
+        receivables_usd=result.receivables_usd,
+        liabilities_usd=result.liabilities_usd,
         month_progress=MonthProgress(
             elapsed_days=result.as_of.day, total_days=total_days
         ),
@@ -190,7 +195,7 @@ def by_category_endpoint(
 
     rows = [
         _spend_row(cid, amount, cats)
-        for cid, amount in by_category(db, date_from, date_to)
+        for cid, amount in by_category(db, date_from, date_to, for_report=True)
     ]
     rows.sort(key=lambda r: r.amount_usd, reverse=True)
     return ByCategoryOut(
@@ -327,3 +332,35 @@ def projection(db: Session = Depends(get_db)) -> ProjectionOut:
         daily_burn_usd=burn,
         zero_crossing_date=zero_crossing,
     )
+
+
+# --------------------------------------------------------------------- cards
+
+class CardPanelOut(ApiModel):
+    account_id: int
+    name: str
+    currency: str
+    current_balance_usd: MoneyStr
+    statement_balance_usd: MoneyStr
+    statement_close_date: dt.date | None
+    due_date: dt.date | None
+    days_until_due: int | None
+    alert: bool
+
+
+@router.get("/cards", response_model=list[CardPanelOut])
+def cards(db: Session = Depends(get_db)) -> list[CardPanelOut]:
+    return [
+        CardPanelOut(
+            account_id=p.account_id,
+            name=p.name,
+            currency=p.currency,
+            current_balance_usd=p.current_balance_usd,
+            statement_balance_usd=p.statement_balance_usd,
+            statement_close_date=p.statement_close_date,
+            due_date=p.due_date,
+            days_until_due=p.days_until_due,
+            alert=p.alert,
+        )
+        for p in card_panels(db)
+    ]

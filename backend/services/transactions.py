@@ -11,10 +11,19 @@ from sqlalchemy.orm import Session
 
 from backend.models.account import Account
 from backend.models.category import Category
-from backend.models.enums import TransactionDirection, TransactionKind
+from backend.models.enums import (
+    AccountKind,
+    ExternalTreatment,
+    TransactionDirection,
+    TransactionKind,
+)
+from backend.models.expense_share import ExpenseShare
+from backend.models.person import Person
 from backend.models.transaction import Transaction
+from backend.money import ZERO
 from backend.schemas.transaction import (
     MANUAL_KINDS,
+    ShareIn,
     TransactionCreate,
     TransactionUpdate,
 )
@@ -65,6 +74,63 @@ def _apply_conversion(
     txn.needs_review = currency != "USD" and conversion.stale
 
 
+def _require_person(db: Session, person_id: int) -> Person:
+    person = db.get(Person, person_id)
+    if person is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, "unknown person_id"
+        )
+    return person
+
+
+def _set_shares(
+    db: Session, txn: Transaction, shares: list[ShareIn]
+) -> None:
+    """Replace the transaction's expense_shares. Total may not exceed the
+    transaction's own USD amount (my share is the remainder)."""
+    total = sum((s.share_amount_usd for s in shares), ZERO)
+    if total > txn.amount_usd:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "shares exceed the transaction amount",
+        )
+    txn.shares = [
+        ExpenseShare(
+            person_id=_require_person(db, s.person_id).id,
+            share_amount_usd=s.share_amount_usd,
+        )
+        for s in shares
+    ]
+
+
+def _apply_external_treatment(
+    db: Session, txn: Transaction, body: TransactionCreate, account: Account
+) -> None:
+    if account.kind != AccountKind.external:
+        return
+    if body.external_treatment is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "external-account purchases need external_treatment (gift|owe)",
+        )
+    if body.external_treatment == ExternalTreatment.gift:
+        txn.excluded_from_my_budget = True
+        return
+    # "I owe it back" — a liability against the card's owner.
+    owner_id = body.owed_to_person_id or account.owner_person_id
+    if owner_id is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "who do you owe? set owed_to_person_id or the account's owner",
+        )
+    txn.shares = [
+        ExpenseShare(
+            person_id=_require_person(db, owner_id).id,
+            share_amount_usd=txn.amount_usd,
+        )
+    ]
+
+
 def create_transaction(db: Session, body: TransactionCreate) -> Transaction:
     if body.kind not in MANUAL_KINDS:
         raise HTTPException(
@@ -87,9 +153,15 @@ def create_transaction(db: Session, body: TransactionCreate) -> Transaction:
         notes=body.notes,
         is_reimbursable=body.is_reimbursable,
         excluded_from_my_budget=body.excluded_from_my_budget,
+        is_shared=body.is_shared or bool(body.shares),
         tags=list(body.tags),
     )
     _apply_conversion(db, txn, account.currency.value, body.date)
+
+    if body.shares:
+        _set_shares(db, txn, body.shares)
+    _apply_external_treatment(db, txn, body, account)
+
     db.add(txn)
     db.commit()
     db.refresh(txn)
@@ -141,6 +213,12 @@ def update_transaction(
     # An explicit needs_review in the request always wins.
     if "needs_review" in data:
         txn.needs_review = data["needs_review"]
+
+    if "is_shared" in data:
+        txn.is_shared = data["is_shared"]
+    if body.shares is not None:
+        _set_shares(db, txn, body.shares)
+        txn.is_shared = bool(body.shares)
 
     db.commit()
     db.refresh(txn)

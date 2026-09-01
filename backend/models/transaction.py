@@ -2,9 +2,9 @@ import datetime as dt
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import Date, ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.database import Base
 from backend.models._types import Money, Rate, TimestampCreated, TimestampUpdated
@@ -60,8 +60,9 @@ class Transaction(Base):
     excluded_from_my_budget: Mapped[bool] = mapped_column(default=False)
 
     transfer_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
-    # recurring_rules FK is added when that table lands (Phase 4).
-    recurring_id: Mapped[int | None] = mapped_column(Integer)
+    recurring_id: Mapped[int | None] = mapped_column(
+        ForeignKey("recurring_rules.id", ondelete="SET NULL")
+    )
     import_batch_id: Mapped[int | None] = mapped_column(
         ForeignKey("import_batches.id", ondelete="SET NULL")
     )
@@ -77,6 +78,13 @@ class Transaction(Base):
 
     created_at: Mapped[TimestampCreated]
     updated_at: Mapped[TimestampUpdated]
+
+    shares: Mapped[list["ExpenseShare"]] = relationship(  # noqa: F821
+        "ExpenseShare",
+        primaryjoin="Transaction.id == ExpenseShare.transaction_id",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     __table_args__ = (
         Index("ix_transactions_account_date", "account_id", "date"),

@@ -30,14 +30,23 @@ import {
   useDeleteAccount,
   useDeleteCategory,
   useDeleteMerchantRule,
+  useDeleteRecurringRule,
   useMerchantRules,
+  usePeople,
   usePlanConfig,
+  useRecurringRules,
+  useRunRecurringRule,
   useSaveAccount,
   useSaveCategory,
   useSaveMerchantRule,
   useSavePlanConfig,
+  useSaveRecurringRule,
 } from "../lib/queries";
-import type { CategoryNature, CommittedCost } from "../lib/types";
+import type {
+  CategoryNature,
+  CommittedCost,
+  RecurringFrequency,
+} from "../lib/types";
 
 const NATURES: CategoryNature[] = [
   "essential",
@@ -112,6 +121,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 function AccountsSection() {
   const accounts = useAccounts();
+  const people = usePeople();
   const save = useSaveAccount();
   const remove = useDeleteAccount();
   const meta = useMeta();
@@ -123,13 +133,21 @@ function AccountsSection() {
     currency: "USD",
     opening_balance: "0",
     opening_date: today(),
+    owner_person_id: "",
   });
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     try {
-      await save.mutateAsync({ ...draft });
+      const { owner_person_id, ...rest } = draft;
+      await save.mutateAsync({
+        ...rest,
+        owner_person_id:
+          draft.kind === "external" && owner_person_id
+            ? Number(owner_person_id)
+            : null,
+      });
       setDraft({ ...draft, name: "", institution: "", opening_balance: "0" });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save");
@@ -259,6 +277,26 @@ function AccountsSection() {
             }
           />
         </Field>
+        {draft.kind === "external" && (
+          <Field>
+            <FieldLabel>Owner (whose card)</FieldLabel>
+            <Select
+              value={draft.owner_person_id}
+              onChange={(e) =>
+                setDraft({ ...draft, owner_person_id: e.target.value })
+              }
+            >
+              <option value="">—</option>
+              {(people.data ?? [])
+                .filter((p) => p.role !== "me")
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+        )}
         <Button type="submit" disabled={save.isPending}>
           <Plus size={16} /> Add account
         </Button>
@@ -681,13 +719,250 @@ function MerchantRulesSection() {
   );
 }
 
+const FREQUENCIES: RecurringFrequency[] = ["weekly", "monthly", "yearly"];
+
+function RecurringRulesSection() {
+  const rules = useRecurringRules();
+  const accounts = useAccounts();
+  const categories = useCategories();
+  const save = useSaveRecurringRule();
+  const remove = useDeleteRecurringRule();
+  const run = useRunRecurringRule();
+  const meta = useMeta();
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState({
+    name: "",
+    account_id: "",
+    category_id: "",
+    amount: "",
+    currency: "USD",
+    frequency: "monthly",
+    day_of_month: "1",
+    start_date: today(),
+    is_income: false,
+  });
+
+  const accountName = new Map(
+    (accounts.data ?? []).map((a) => [a.id, a.name] as const),
+  );
+  const catName = new Map(
+    (categories.data ?? []).map((c) => [c.id, c.name] as const),
+  );
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await save.mutateAsync({
+        name: draft.name,
+        account_id: Number(draft.account_id),
+        category_id: draft.category_id ? Number(draft.category_id) : null,
+        amount: draft.amount,
+        currency: draft.currency,
+        frequency: draft.frequency,
+        day_of_month: Number(draft.day_of_month) || 1,
+        start_date: draft.start_date,
+        is_income: draft.is_income,
+      });
+      setDraft({ ...draft, name: "", amount: "" });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save");
+    }
+  }
+
+  return (
+    <Section>
+      <SectionTitle>Recurring rules</SectionTitle>
+      <Muted>
+        Templates that generate transactions on a schedule. A daily job
+        creates any that have come due; “Run now” catches one up immediately.
+      </Muted>
+
+      <TableScroll>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Name</Th>
+              <Th>Account</Th>
+              <Th>Category</Th>
+              <Th $align="right">Amount</Th>
+              <Th>Every</Th>
+              <Th>Last run</Th>
+              <Th />
+            </tr>
+          </thead>
+          <tbody>
+            {(rules.data ?? []).map((r) => (
+              <tr key={r.id}>
+                <Td>
+                  {r.name}
+                  {r.is_income ? " (income)" : ""}
+                </Td>
+                <Td>{accountName.get(r.account_id) ?? "—"}</Td>
+                <Td>{r.category_id ? catName.get(r.category_id) : "—"}</Td>
+                <Td $align="right">{formatMoney(r.amount, r.currency)}</Td>
+                <Td>
+                  {r.frequency === "monthly"
+                    ? `month · day ${r.day_of_month}`
+                    : r.frequency}
+                </Td>
+                <Td>{r.last_generated_date ?? "never"}</Td>
+                <Td>
+                  <Row $gap="sm">
+                    {!meta.demo_mode && (
+                      <GhostButton
+                        type="button"
+                        onClick={() => run.mutate(r.id)}
+                        disabled={run.isPending}
+                      >
+                        Run now
+                      </GhostButton>
+                    )}
+                    {!meta.demo_mode && (
+                      <GhostButton
+                        type="button"
+                        aria-label={`Delete ${r.name}`}
+                        onClick={() => remove.mutate(r.id)}
+                      >
+                        <TrashSimple size={14} />
+                      </GhostButton>
+                    )}
+                  </Row>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </TableScroll>
+
+      {!meta.demo_mode && (
+        <AddForm onSubmit={add}>
+          <Field>
+            <FieldLabel>Name</FieldLabel>
+            <Input
+              required
+              value={draft.name}
+              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            />
+          </Field>
+          <Field>
+            <FieldLabel>Account</FieldLabel>
+            <Select
+              required
+              value={draft.account_id}
+              onChange={(e) =>
+                setDraft({ ...draft, account_id: e.target.value })
+              }
+            >
+              <option value="">Select…</option>
+              {(accounts.data ?? []).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel>Category</FieldLabel>
+            <Select
+              value={draft.category_id}
+              onChange={(e) =>
+                setDraft({ ...draft, category_id: e.target.value })
+              }
+            >
+              <option value="">—</option>
+              {(categories.data ?? [])
+                .filter((c) => !c.is_archived)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel>Amount</FieldLabel>
+            <Input
+              inputMode="decimal"
+              required
+              value={draft.amount}
+              onChange={(e) => setDraft({ ...draft, amount: e.target.value })}
+            />
+          </Field>
+          <Field>
+            <FieldLabel>Currency</FieldLabel>
+            <Select
+              value={draft.currency}
+              onChange={(e) => setDraft({ ...draft, currency: e.target.value })}
+            >
+              <option value="USD">USD</option>
+              <option value="BRL">BRL</option>
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel>Frequency</FieldLabel>
+            <Select
+              value={draft.frequency}
+              onChange={(e) =>
+                setDraft({ ...draft, frequency: e.target.value })
+              }
+            >
+              {FREQUENCIES.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel>Day of month</FieldLabel>
+            <Input
+              inputMode="numeric"
+              value={draft.day_of_month}
+              onChange={(e) =>
+                setDraft({ ...draft, day_of_month: e.target.value })
+              }
+            />
+          </Field>
+          <Field>
+            <FieldLabel>Start date</FieldLabel>
+            <Input
+              type="date"
+              value={draft.start_date}
+              onChange={(e) =>
+                setDraft({ ...draft, start_date: e.target.value })
+              }
+            />
+          </Field>
+          <Field>
+            <FieldLabel>Kind</FieldLabel>
+            <Select
+              value={draft.is_income ? "income" : "expense"}
+              onChange={(e) =>
+                setDraft({ ...draft, is_income: e.target.value === "income" })
+              }
+            >
+              <option value="expense">expense</option>
+              <option value="income">income</option>
+            </Select>
+          </Field>
+          <Button type="submit" disabled={save.isPending}>
+            <Plus size={16} /> Add rule
+          </Button>
+        </AddForm>
+      )}
+      {error && <ErrorText>{error}</ErrorText>}
+    </Section>
+  );
+}
+
 export function Settings() {
   return (
     <Stack $gap="xl">
       <PageTitle>Settings</PageTitle>
-      <Muted>Recurring rules arrive in a later phase.</Muted>
       <PlanSection />
       <AccountsSection />
+      <RecurringRulesSection />
       <CategoriesSection />
       <MerchantRulesSection />
     </Stack>
