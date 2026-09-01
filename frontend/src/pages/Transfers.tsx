@@ -114,7 +114,9 @@ export function Transfers() {
     }
   }
 
-  const activeAccounts = (accounts.data ?? []).filter((a) => a.is_owned);
+  const activeAccounts = (accounts.data ?? []).filter(
+    (a) => a.is_owned && a.is_active,
+  );
 
   return (
     <Stack $gap="xl">
