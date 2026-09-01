@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sts
+          POSTGRES_PASSWORD: sts
+          POSTGRES_DB: safe_to_spend
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sts -d safe_to_spend"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg://sts:sts@localhost:5432/safe_to_spend
+      JWT_SECRET: ci-secret-at-least-16-chars-long
+      CRON_SECRET: ci-cron-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: ruff check backend tests alembic
+      - name: Migrations
+        run: alembic upgrade head
+      - name: Migrations match models
+        run: alembic check
+      - name: Tests
+        run: pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Typecheck & build
+        run: npm run build

@@ -1,5 +1,7 @@
 # safe-to-spend
 
+[![CI](https://github.com/carolinaporto/safe-to-spend/actions/workflows/ci.yml/badge.svg)](https://github.com/carolinaporto/safe-to-spend/actions/workflows/ci.yml)
+
 **Personal finance for an academic year abroad.**
 
 A web app I built to manage my money during my academic year at Harvard. As an international student, my finances sit across two currencies and several institutions — funds in BRL that get converted to USD, accounts at Wise and Chase, three credit cards, rent split with two roommates — and no off-the-shelf budgeting app handles that well. This one does.
@@ -63,9 +65,9 @@ cd safe-to-spend
 # Database — Neon in production; Postgres via Docker for local dev
 docker compose up -d db
 
-# Backend (Python 3.12)
+# Backend (Python 3.12 — see .python-version)
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt   # runtime deps + pytest/ruff
 cp .env.example .env          # DATABASE_URL is pre-filled for the Docker DB
 python -m backend.scripts.hash_password "your-password"   # paste into APP_PASSWORD_HASH
 alembic upgrade head
@@ -92,10 +94,12 @@ Then add your accounts and academic-year plan in **Settings**. Don't run
 ## Testing
 
 ```bash
-pytest
+pytest              # needs the Docker DB running
+ruff check backend tests alembic
+alembic check       # migrations match the models
 ```
 
-Covers the parts where a bug means a wrong number on screen: currency conversion and rounding, transfer legs balancing, FX cost computation, shared-expense math, balance reconstruction, import deduplication, and the exclusion of transfers and reimbursements from category spending.
+Covers the parts where a bug means a wrong number on screen: currency conversion and rounding, transfer legs balancing, FX cost computation, shared-expense math, balance reconstruction, runway and budget math, import deduplication, and the exclusion of transfers and reimbursements from category spending. CI runs all of the above plus the frontend build on every push.
 
 ---
 
