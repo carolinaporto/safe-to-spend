@@ -13,11 +13,11 @@ import datetime as dt
 import random
 from decimal import Decimal
 
-from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
 from backend.models.account import Account
+from backend.models.budget import Budget
 from backend.models.category import Category
 from backend.models.enums import (
     AccountKind,
@@ -30,9 +30,12 @@ from backend.models.enums import (
 )
 from backend.models.fx_rate import FxRate
 from backend.models.person import Person
+from backend.models.plan_config import PLAN_CONFIG_ID, PlanConfig
 from backend.models.transaction import Transaction
 from backend.money import money
+from backend.reset import wipe_ledger
 from backend.services.fx import convert_to_usd
+
 
 def _months_back(date: dt.date, n: int) -> dt.date:
     """First day of the month ``n`` months before ``date``'s month."""
@@ -52,9 +55,9 @@ PEOPLE = [
 
 ACCOUNTS = [
     # name, institution, kind, currency, opening_balance, color, statement_day, due_day
-    ("Wise BRL", "Wise", AccountKind.checking, Currency.BRL, "9200.00", "#37517e", None, None),
-    ("Wise USD", "Wise", AccountKind.checking, Currency.USD, "740.00", "#2f7d5b", None, None),
-    ("Chase Checking", "Chase", AccountKind.checking, Currency.USD, "5100.00", "#117ac9", None, None),
+    ("Wise BRL", "Wise", AccountKind.checking, Currency.BRL, "150000.00", "#37517e", None, None),
+    ("Wise USD", "Wise", AccountKind.checking, Currency.USD, "900.00", "#2f7d5b", None, None),
+    ("Chase Checking", "Chase", AccountKind.checking, Currency.USD, "3200.00", "#117ac9", None, None),
     ("Amex", "American Express", AccountKind.credit_card, Currency.USD, "0.00", "#2e77bb", 3, 25),
     ("Macy's", "Macy's", AccountKind.credit_card, Currency.USD, "0.00", "#b3272d", 12, 5),
     ("Cash", "Cash", AccountKind.cash, Currency.USD, "160.00", "#6b7280", None, None),
@@ -146,12 +149,7 @@ def _months(start: dt.date, end: dt.date):
 
 
 def _wipe(db: Session) -> None:
-    db.execute(delete(Transaction))
-    db.execute(delete(FxRate))
-    db.execute(delete(Account))
-    db.execute(delete(Category))
-    db.execute(delete(Person))
-    db.flush()
+    wipe_ledger(db)
 
 
 def _seed_people(db: Session) -> None:
@@ -240,24 +238,27 @@ def _seed_transactions(
 ) -> None:
     rng = random.Random(7)
 
+    # The year's funding lands as a lump sum at the start (already in the
+    # Wise BRL opening balance). Each month a chunk is converted to USD, and
+    # a small TA stipend comes in.
     for month in _months(START, END):
-        fund_day = max(START, month.replace(day=2))
-        if fund_day <= END:
+        stipend_day = month.replace(day=15)
+        if START <= stipend_day <= END:
             _add_txn(
                 db,
-                day=fund_day,
-                account=acct["Wise BRL"],
+                day=stipend_day,
+                account=acct["Chase Checking"],
                 kind=TransactionKind.income,
                 direction=TransactionDirection.in_,
-                amount=Decimal("17500.00"),
-                category=cats["Funding"],
-                merchant="Family transfer",
+                amount=Decimal("430.00"),
+                category=cats["Work"],
+                merchant="Harvard TA stipend",
             )
-            # Convert most of it to USD (modelled as paired adjustments).
-            rate = convert_to_usd(
-                db, Decimal("1"), "BRL", fund_day
-            ).rate
-            brl_out = Decimal("15500.00")
+
+        fund_day = max(START, month.replace(day=2))
+        if fund_day <= END:
+            rate = convert_to_usd(db, Decimal("1"), "BRL", fund_day).rate
+            brl_out = Decimal("14000.00")
             usd_in = (brl_out * rate).quantize(Decimal("0.01"))
             _add_txn(
                 db,
@@ -288,9 +289,10 @@ def _seed_transactions(
                 account=acct["Chase Checking"],
                 kind=TransactionKind.expense,
                 direction=TransactionDirection.out,
-                amount=Decimal("2850.00"),
+                amount=Decimal("1300.00"),
                 category=cats["Rent"],
                 merchant="Beacon St Apartments",
+                notes="my share of a 3-way split (full split lands in Phase 4)",
             )
 
         atm_day = month.replace(day=6)
@@ -363,6 +365,70 @@ def _seed_transactions(
     db.flush()
 
 
+MONTHLY_BUDGET = {
+    None: "2600.00",  # global ceiling
+    "Rent": "1300.00",
+    "Groceries": "360.00",
+    "Restaurants": "240.00",
+    "Coffee": "70.00",
+    "Bars": "90.00",
+    "Transport": "80.00",
+    "Utilities": "95.00",
+    "Phone/Internet": "70.00",
+    "Entertainment": "60.00",
+    "Subscriptions": "35.00",
+    "Clothing": "120.00",
+}
+
+
+def _seed_plan_config(db: Session) -> None:
+    db.add(
+        PlanConfig(
+            id=PLAN_CONFIG_ID,
+            academic_year_start=START,
+            academic_year_end=add_months_forward(END, 7).replace(day=20),
+            emergency_reserve_usd=Decimal("1500.00"),
+            committed_costs=[
+                {
+                    "label": "Spring break trip",
+                    "amount_usd": "640.00",
+                    "due_date": (END + dt.timedelta(days=52)).isoformat(),
+                },
+                {
+                    "label": "Renters insurance renewal",
+                    "amount_usd": "210.00",
+                    "due_date": (END + dt.timedelta(days=88)).isoformat(),
+                },
+                {
+                    "label": "Flight home",
+                    "amount_usd": "780.00",
+                    "due_date": (END + dt.timedelta(days=150)).isoformat(),
+                },
+            ],
+        )
+    )
+    db.flush()
+
+
+def _seed_budgets(db: Session, cats: dict[str, Category]) -> None:
+    for month in _months(START, add_months_forward(END, 1)):
+        for name, amount in MONTHLY_BUDGET.items():
+            db.add(
+                Budget(
+                    month=month.replace(day=1),
+                    category_id=cats[name].id if name else None,
+                    amount_usd=Decimal(amount),
+                    rollover=name in {"Clothing", "Entertainment"},
+                )
+            )
+    db.flush()
+
+
+def add_months_forward(d: dt.date, n: int) -> dt.date:
+    index = d.year * 12 + (d.month - 1) + n
+    return dt.date(index // 12, index % 12 + 1, 1)
+
+
 def seed() -> dict[str, int]:
     db = SessionLocal()
     try:
@@ -372,6 +438,8 @@ def seed() -> dict[str, int]:
         categories = _seed_categories(db)
         _seed_fx(db)
         _seed_transactions(db, accounts, categories)
+        _seed_plan_config(db)
+        _seed_budgets(db, categories)
         db.commit()
         return {
             "people": db.query(Person).count(),
@@ -379,6 +447,7 @@ def seed() -> dict[str, int]:
             "categories": db.query(Category).count(),
             "fx_rates": db.query(FxRate).count(),
             "transactions": db.query(Transaction).count(),
+            "budgets": db.query(Budget).count(),
         }
     finally:
         db.close()

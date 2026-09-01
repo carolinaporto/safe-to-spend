@@ -7,8 +7,14 @@ import {
 import { api } from "./api";
 import type {
   Account,
+  ByCategory,
+  CashflowMonth,
   Category,
   DashboardBalances,
+  DashboardOverview,
+  MonthBudget,
+  PlanConfig,
+  Projection,
   Transaction,
   TransactionPage,
 } from "./types";
@@ -107,6 +113,7 @@ export interface TransactionFilters {
   currency?: string;
   nature?: string;
   q?: string;
+  needs_review?: boolean;
   page?: number;
   page_size?: number;
 }
@@ -154,15 +161,6 @@ export function useUpdateTransaction() {
   });
 }
 
-export function useDeleteTransaction() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) =>
-      api<void>(`/api/transactions/${id}`, { method: "DELETE" }),
-    onSuccess: () => invalidateLedger(qc),
-  });
-}
-
 export function useBulkCategorize() {
   const qc = useQueryClient();
   return useMutation({
@@ -184,5 +182,102 @@ export function useDashboardBalances() {
   return useQuery({
     queryKey: ["dashboard", "balances"],
     queryFn: () => api<DashboardBalances>("/api/dashboard/balances"),
+  });
+}
+
+export function useOverview() {
+  return useQuery({
+    queryKey: ["dashboard", "overview"],
+    queryFn: () => api<DashboardOverview>("/api/dashboard/overview"),
+  });
+}
+
+export function useByCategory(params: { from?: string; to?: string } = {}) {
+  const query = filtersToParams(params);
+  return useQuery({
+    queryKey: ["dashboard", "by-category", query],
+    queryFn: () => api<ByCategory>(`/api/dashboard/by-category?${query}`),
+  });
+}
+
+export function useCashflow(months = 12) {
+  return useQuery({
+    queryKey: ["dashboard", "cashflow", months],
+    queryFn: () =>
+      api<{ months: CashflowMonth[] }>(
+        `/api/dashboard/cashflow?months=${months}`,
+      ),
+  });
+}
+
+export function useProjection() {
+  return useQuery({
+    queryKey: ["dashboard", "projection"],
+    queryFn: () => api<Projection>("/api/dashboard/projection"),
+  });
+}
+
+// ----------------------------------------------------------------- budgets
+
+export function useBudget(month: string) {
+  return useQuery({
+    queryKey: ["budgets", month],
+    queryFn: () => api<MonthBudget>(`/api/budgets/${month}`),
+  });
+}
+
+export function useSaveBudget(month: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (
+      entries: {
+        category_id: number | null;
+        amount_usd: string;
+        rollover: boolean;
+      }[],
+    ) =>
+      api<MonthBudget>(`/api/budgets/${month}`, {
+        method: "PUT",
+        body: JSON.stringify({ entries }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["budgets"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}
+
+export function useCopyBudget(month: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<MonthBudget>(`/api/budgets/${month}/copy-from-previous`, {
+        method: "POST",
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["budgets"] }),
+  });
+}
+
+// ------------------------------------------------------------- plan config
+
+export function usePlanConfig() {
+  return useQuery({
+    queryKey: ["plan-config"],
+    queryFn: () => api<PlanConfig>("/api/plan-config"),
+  });
+}
+
+export function useSavePlanConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Partial<PlanConfig>) =>
+      api<PlanConfig>("/api/plan-config", {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["plan-config"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
   });
 }

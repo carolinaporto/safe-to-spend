@@ -22,6 +22,19 @@ def _get_or_404(db: Session, category_id: int) -> Category:
     return category
 
 
+def _would_cycle(db: Session, category_id: int, new_parent_id: int) -> bool:
+    """True if making new_parent_id the parent of category_id creates a loop."""
+    seen = {category_id}
+    cursor: int | None = new_parent_id
+    while cursor is not None:
+        if cursor in seen:
+            return True
+        seen.add(cursor)
+        parent = db.get(Category, cursor)
+        cursor = parent.parent_id if parent else None
+    return False
+
+
 @router.get("", response_model=list[CategoryOut])
 def list_categories(
     include_archived: bool = True, db: Session = Depends(get_db)
@@ -51,9 +64,11 @@ def update_category(
 ) -> Category:
     category = _get_or_404(db, category_id)
     data = body.model_dump(exclude_unset=True)
-    if data.get("parent_id") == category_id:
+    new_parent = data.get("parent_id")
+    if new_parent is not None and _would_cycle(db, category_id, new_parent):
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "a category cannot be its own parent"
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "that parent would create a category loop",
         )
     for field, value in data.items():
         setattr(category, field, value)

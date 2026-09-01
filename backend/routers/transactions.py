@@ -37,6 +37,7 @@ def _filtered(
     currency: str | None,
     nature: CategoryNature | None,
     q: str | None,
+    needs_review: bool | None = None,
 ) -> Select:
     stmt = select(Transaction)
     if date_from is not None:
@@ -49,6 +50,8 @@ def _filtered(
         stmt = stmt.where(Transaction.category_id == category)
     if kind is not None:
         stmt = stmt.where(Transaction.kind == kind)
+    if needs_review is not None:
+        stmt = stmt.where(Transaction.needs_review.is_(needs_review))
     if currency is not None:
         stmt = stmt.where(Transaction.currency == currency.upper())
     if nature is not None:
@@ -79,6 +82,7 @@ def _common_filters(
     currency: str | None = None,
     nature: CategoryNature | None = None,
     q: str | None = None,
+    needs_review: bool | None = None,
 ) -> dict:
     return {
         "date_from": date_from,
@@ -89,6 +93,7 @@ def _common_filters(
         "currency": currency,
         "nature": nature,
         "q": q,
+        "needs_review": needs_review,
     }
 
 

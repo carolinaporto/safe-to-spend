@@ -3,8 +3,8 @@ import datetime as dt
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from backend.deps import require_auth, require_cron_secret
 from backend.database import get_db
+from backend.deps import require_auth, require_cron_secret
 from backend.schemas.common import ApiModel, RateStr
 from backend.services import fx_provider
 from backend.services.fx import get_rate, upsert_rate
@@ -45,11 +45,11 @@ def fetch_fx(db: Session = Depends(get_db)) -> dict:
     today = dt.date.today()
     try:
         pairs = fx_provider.fetch_usd_brl(today)
-    except Exception as exc:  # noqa: BLE001 - provider failure is reported, not raised
+    except Exception as exc:  # provider failure is reported, not raised
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"fx provider unavailable: {exc}",
-        )
+        ) from exc
 
     for (base, quote), value in pairs.items():
         upsert_rate(db, today, base, quote, value, source="frankfurter")

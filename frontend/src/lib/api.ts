@@ -11,6 +11,10 @@ export function setToken(token: string | null): void {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
+/** Fired when the API rejects the token (expired / invalid). AuthContext
+ *  listens for this and drops the session so the login screen shows. */
+export const UNAUTHORIZED_EVENT = "sts:unauthorized";
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -32,8 +36,9 @@ export async function api<T>(
 
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
 
-  if (res.status === 401) {
+  if (res.status === 401 && getToken()) {
     setToken(null);
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   }
 
   if (!res.ok) {

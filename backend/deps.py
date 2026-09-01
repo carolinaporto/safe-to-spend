@@ -1,12 +1,11 @@
 import hmac
 
+import jwt
 from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from backend.config import get_settings
 from backend.security import decode_access_token
-
-import jwt
 
 _bearer = HTTPBearer(auto_error=True)
 
@@ -51,5 +50,5 @@ def require_auth(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
-        )
+        ) from None
     return payload.get("sub", "owner")

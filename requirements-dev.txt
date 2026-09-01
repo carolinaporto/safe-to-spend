@@ -1,0 +1,5 @@
+# Dev / CI tooling. Not deployed.
+-r requirements.txt
+
+pytest==8.3.4
+ruff==0.16.5

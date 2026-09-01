@@ -9,11 +9,13 @@ from backend.routers import (
     accounts,
     auth,
     backup,
+    budgets,
     categories,
     dashboard,
     fx,
     health,
     meta,
+    plan_config,
     transactions,
 )
 
@@ -58,4 +60,6 @@ app.include_router(accounts.router)
 app.include_router(categories.router)
 app.include_router(transactions.router)
 app.include_router(dashboard.router)
+app.include_router(budgets.router)
+app.include_router(plan_config.router)
 app.include_router(backup.router)

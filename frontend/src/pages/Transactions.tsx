@@ -36,7 +36,6 @@ import {
   useUpdateTransaction,
   type TransactionFilters,
 } from "../lib/queries";
-import { theme } from "../theme";
 import type { Theme } from "../theme";
 import type { Category, Transaction } from "../lib/types";
 
@@ -64,6 +63,11 @@ const CategorySelect = styled(InlineSelect)<{ $nature?: keyof Theme["nature"] }>
 const Amount = styled.span<{ $in: boolean }>`
   font-variant-numeric: tabular-nums;
   color: ${({ theme, $in }) => ($in ? theme.color.inflow : theme.color.text)};
+`;
+
+const ReviewBadge = styled(Badge)`
+  color: ${({ theme }) => theme.color.warning};
+  margin-left: ${({ theme }) => theme.space.xs};
 `;
 
 const RightTh = styled(Th)`
@@ -150,9 +154,9 @@ export function Transactions() {
             <>
               {t.merchant_clean || t.merchant_raw || t.description || "—"}
               {t.needs_review && (
-                <Badge $color={theme.color.warning}>
+                <ReviewBadge>
                   <Warning size={12} weight="fill" /> review
-                </Badge>
+                </ReviewBadge>
               )}
             </>
           );

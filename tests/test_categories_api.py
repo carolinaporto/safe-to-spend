@@ -41,6 +41,28 @@ def test_create_category_and_subcategory(
     assert child.json()["parent_id"] == parent["id"]
 
 
+def test_parent_that_would_create_a_loop_is_rejected(
+    api_client: TestClient, auth_headers: dict
+) -> None:
+    a = api_client.post(
+        "/api/categories",
+        json={"name": "A", "nature": "essential"},
+        headers=auth_headers,
+    ).json()
+    b = api_client.post(
+        "/api/categories",
+        json={"name": "B", "nature": "essential", "parent_id": a["id"]},
+        headers=auth_headers,
+    ).json()
+    # making A a child of B would close the loop A -> B -> A
+    resp = api_client.patch(
+        f"/api/categories/{a['id']}",
+        json={"parent_id": b["id"]},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+
+
 def test_archive_via_patch(api_client: TestClient, auth_headers: dict) -> None:
     cat = api_client.post(
         "/api/categories",

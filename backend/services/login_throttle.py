@@ -9,7 +9,7 @@ import math
 from datetime import UTC, datetime, timedelta
 
 from fastapi import HTTPException, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.config import get_settings
