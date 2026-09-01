@@ -4,8 +4,10 @@ import { AppShell } from "./app/AppShell";
 import { useAuth } from "./auth/AuthContext";
 import { Budget } from "./pages/Budget";
 import { Home } from "./pages/Home";
+import { Import } from "./pages/Import";
 import { Login } from "./pages/Login";
 import { QuickAdd } from "./pages/QuickAdd";
+import { Review } from "./pages/Review";
 import { Settings } from "./pages/Settings";
 import { Transactions } from "./pages/Transactions";
 import { Income, People, Transfers } from "./pages/placeholders";
@@ -27,6 +29,8 @@ export function App() {
         <Route index element={<Home />} />
         <Route path="transactions" element={<Transactions />} />
         <Route path="quick-add" element={<QuickAdd />} />
+        <Route path="import" element={<Import />} />
+        <Route path="review" element={<Review />} />
         <Route path="transfers" element={<Transfers />} />
         <Route path="budget" element={<Budget />} />
         <Route path="people" element={<People />} />

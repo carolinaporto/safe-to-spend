@@ -6,12 +6,13 @@ import {
   useReactTable,
   type RowSelectionState,
 } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import styled from "styled-components";
 
 import {
   Badge,
   Button,
+  Card,
   GhostButton,
   Input,
   Muted,
@@ -29,9 +30,11 @@ import { formatDate, formatMoney } from "../lib/format";
 import { useMeta } from "../lib/meta";
 import {
   filtersToParams,
+  suggestRule,
   useAccounts,
   useBulkCategorize,
   useCategories,
+  useSaveMerchantRule,
   useTransactions,
   useUpdateTransaction,
   type TransactionFilters,
@@ -78,6 +81,14 @@ const RightTd = styled(Td)`
   text-align: right;
 `;
 
+const RulePrompt = styled(Card)`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.md};
+  flex-wrap: wrap;
+  border-left: 3px solid ${({ theme }) => theme.color.primary};
+`;
+
 const emptyFilters: TransactionFilters = { page: 1, page_size: 50 };
 
 const column = createColumnHelper<Transaction>();
@@ -92,7 +103,35 @@ export function Transactions() {
   const page = useTransactions(filters);
   const update = useUpdateTransaction();
   const bulk = useBulkCategorize();
+  const saveRule = useSaveMerchantRule();
   const meta = useMeta();
+
+  const [rulePrompt, setRulePrompt] = useState<{
+    merchantRaw: string;
+    categoryId: number;
+  } | null>(null);
+
+  const categorize = useCallback(
+    (t: Transaction, categoryId: number | null) => {
+      update.mutate({ id: t.id, category_id: categoryId });
+      if (categoryId && t.merchant_raw && !meta.demo_mode) {
+        setRulePrompt({ merchantRaw: t.merchant_raw, categoryId });
+      }
+    },
+    [update, meta.demo_mode],
+  );
+
+  async function createRuleFromPrompt() {
+    if (!rulePrompt) return;
+    const suggestion = await suggestRule(rulePrompt.merchantRaw);
+    await saveRule.mutateAsync({
+      pattern: suggestion.pattern,
+      match_type: suggestion.match_type,
+      merchant_clean: suggestion.merchant_clean,
+      category_id: rulePrompt.categoryId,
+    });
+    setRulePrompt(null);
+  }
 
   const categoriesById = useMemo(() => {
     const map = new Map<number, Category>();
@@ -178,10 +217,10 @@ export function Transactions() {
               value={t.category_id ?? ""}
               $nature={category?.nature}
               onChange={(e) =>
-                update.mutate({
-                  id: t.id,
-                  category_id: e.target.value ? Number(e.target.value) : null,
-                })
+                categorize(
+                  t,
+                  e.target.value ? Number(e.target.value) : null,
+                )
               }
             >
               <option value="">Uncategorized</option>
@@ -215,7 +254,7 @@ export function Transactions() {
         ),
       }),
     ],
-    [accountName, categoriesById, categoryOptions, update],
+    [accountName, categoriesById, categoryOptions, categorize],
   );
 
   const rows = page.data?.items ?? [];
@@ -261,6 +300,31 @@ export function Transactions() {
   return (
     <Stack $gap="lg">
       <PageTitle>Transactions</PageTitle>
+
+      {rulePrompt && (
+        <RulePrompt>
+          <Muted as="span">
+            Always categorise{" "}
+            <strong>{rulePrompt.merchantRaw}</strong> as{" "}
+            <strong>
+              {categoriesById.get(rulePrompt.categoryId)?.name ?? "this"}
+            </strong>
+            ?
+          </Muted>
+          <Row $gap="sm">
+            <Button
+              type="button"
+              disabled={saveRule.isPending}
+              onClick={createRuleFromPrompt}
+            >
+              Create rule
+            </Button>
+            <GhostButton type="button" onClick={() => setRulePrompt(null)}>
+              Not now
+            </GhostButton>
+          </Row>
+        </RulePrompt>
+      )}
 
       <Filters>
         <Input

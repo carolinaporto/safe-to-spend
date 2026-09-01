@@ -29,9 +29,12 @@ import {
   useCategories,
   useDeleteAccount,
   useDeleteCategory,
+  useDeleteMerchantRule,
+  useMerchantRules,
   usePlanConfig,
   useSaveAccount,
   useSaveCategory,
+  useSaveMerchantRule,
   useSavePlanConfig,
 } from "../lib/queries";
 import type { CategoryNature, CommittedCost } from "../lib/types";
@@ -529,16 +532,164 @@ function PlanSection() {
   );
 }
 
+function MerchantRulesSection() {
+  const rules = useMerchantRules();
+  const categories = useCategories();
+  const save = useSaveMerchantRule();
+  const remove = useDeleteMerchantRule();
+  const meta = useMeta();
+  const [error, setError] = useState<string | null>(null);
+  const [draft, setDraft] = useState({
+    pattern: "",
+    match_type: "contains",
+    category_id: "",
+    merchant_clean: "",
+    priority: "100",
+  });
+
+  const catName = new Map(
+    (categories.data ?? []).map((c) => [c.id, c.name] as const),
+  );
+
+  async function add(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await save.mutateAsync({
+        pattern: draft.pattern,
+        match_type: draft.match_type,
+        category_id: draft.category_id ? Number(draft.category_id) : null,
+        merchant_clean: draft.merchant_clean || null,
+        priority: Number(draft.priority) || 100,
+      });
+      setDraft({ ...draft, pattern: "", merchant_clean: "" });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save");
+    }
+  }
+
+  return (
+    <Section>
+      <SectionTitle>Merchant rules</SectionTitle>
+      <Muted>
+        Applied during import (highest priority first) to set a category and a
+        clean name from the raw merchant string.
+      </Muted>
+
+      <TableScroll>
+        <Table>
+          <thead>
+            <tr>
+              <Th>Pattern</Th>
+              <Th>Match</Th>
+              <Th>Category</Th>
+              <Th>Clean name</Th>
+              <Th>Priority</Th>
+              <Th>Hits</Th>
+              <Th />
+            </tr>
+          </thead>
+          <tbody>
+            {(rules.data ?? []).map((r) => (
+              <tr key={r.id}>
+                <Td>{r.pattern}</Td>
+                <Td>{r.match_type}</Td>
+                <Td>{r.category_id ? catName.get(r.category_id) : "—"}</Td>
+                <Td>{r.merchant_clean || "—"}</Td>
+                <Td>{r.priority}</Td>
+                <Td>{r.hit_count}</Td>
+                <Td>
+                  <GhostButton
+                    type="button"
+                    disabled={meta.demo_mode}
+                    aria-label={`Delete rule ${r.pattern}`}
+                    onClick={() => remove.mutate(r.id)}
+                  >
+                    <TrashSimple size={14} />
+                  </GhostButton>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </TableScroll>
+
+      {!meta.demo_mode && (
+        <AddForm onSubmit={add}>
+          <Field>
+            <FieldLabel>Pattern</FieldLabel>
+            <Input
+              required
+              value={draft.pattern}
+              onChange={(e) => setDraft({ ...draft, pattern: e.target.value })}
+            />
+          </Field>
+          <Field>
+            <FieldLabel>Match</FieldLabel>
+            <Select
+              value={draft.match_type}
+              onChange={(e) =>
+                setDraft({ ...draft, match_type: e.target.value })
+              }
+            >
+              <option value="contains">contains</option>
+              <option value="regex">regex</option>
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel>Category</FieldLabel>
+            <Select
+              value={draft.category_id}
+              onChange={(e) =>
+                setDraft({ ...draft, category_id: e.target.value })
+              }
+            >
+              <option value="">—</option>
+              {(categories.data ?? [])
+                .filter((c) => !c.is_archived)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel>Clean name</FieldLabel>
+            <Input
+              value={draft.merchant_clean}
+              onChange={(e) =>
+                setDraft({ ...draft, merchant_clean: e.target.value })
+              }
+            />
+          </Field>
+          <Field>
+            <FieldLabel>Priority</FieldLabel>
+            <Input
+              inputMode="numeric"
+              value={draft.priority}
+              onChange={(e) => setDraft({ ...draft, priority: e.target.value })}
+            />
+          </Field>
+          <Button type="submit" disabled={save.isPending}>
+            <Plus size={16} /> Add rule
+          </Button>
+        </AddForm>
+      )}
+      {error && <ErrorText>{error}</ErrorText>}
+    </Section>
+  );
+}
+
 export function Settings() {
   return (
     <Stack $gap="xl">
       <PageTitle>Settings</PageTitle>
-      <Muted>
-        Merchant rules and recurring rules arrive in later phases.
-      </Muted>
+      <Muted>Recurring rules arrive in a later phase.</Muted>
       <PlanSection />
       <AccountsSection />
       <CategoriesSection />
+      <MerchantRulesSection />
     </Stack>
   );
 }

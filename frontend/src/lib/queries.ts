@@ -4,7 +4,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 
-import { api } from "./api";
+import { api, apiForm } from "./api";
 import type {
   Account,
   ByCategory,
@@ -12,9 +12,13 @@ import type {
   Category,
   DashboardBalances,
   DashboardOverview,
+  ImportCommitResult,
+  ImportPreview,
+  MerchantRule,
   MonthBudget,
   PlanConfig,
   Projection,
+  ReviewQueue,
   Transaction,
   TransactionPage,
 } from "./types";
@@ -32,6 +36,8 @@ function invalidateLedger(qc: ReturnType<typeof useQueryClient>) {
   qc.invalidateQueries({ queryKey: ["accounts"] });
   qc.invalidateQueries({ queryKey: ["transactions"] });
   qc.invalidateQueries({ queryKey: ["dashboard"] });
+  qc.invalidateQueries({ queryKey: ["review-queue"] });
+  qc.invalidateQueries({ queryKey: ["budgets"] });
 }
 
 export function useSaveAccount() {
@@ -279,5 +285,122 @@ export function useSavePlanConfig() {
       qc.invalidateQueries({ queryKey: ["plan-config"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
+  });
+}
+
+// ----------------------------------------------------------- merchant rules
+
+export function useMerchantRules() {
+  return useQuery({
+    queryKey: ["merchant-rules"],
+    queryFn: () => api<MerchantRule[]>("/api/merchant-rules"),
+  });
+}
+
+export function useSaveMerchantRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id?: number } & Record<string, unknown>) => {
+      const { id, ...body } = input;
+      return id
+        ? api<MerchantRule>(`/api/merchant-rules/${id}`, {
+            method: "PATCH",
+            body: JSON.stringify(body),
+          })
+        : api<MerchantRule>("/api/merchant-rules", {
+            method: "POST",
+            body: JSON.stringify(body),
+          });
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["merchant-rules"] }),
+  });
+}
+
+export function useDeleteMerchantRule() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      api<void>(`/api/merchant-rules/${id}`, { method: "DELETE" }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["merchant-rules"] }),
+  });
+}
+
+export function suggestRule(merchantRaw: string) {
+  return api<{
+    pattern: string;
+    match_type: string;
+    merchant_clean: string | null;
+  }>(`/api/merchant-rules/suggest?merchant_raw=${encodeURIComponent(merchantRaw)}`);
+}
+
+// ----------------------------------------------------------------- imports
+
+function importForm(
+  accountId: number,
+  parser: string,
+  file: File,
+  extra: Record<string, string> = {},
+): FormData {
+  const form = new FormData();
+  form.set("account_id", String(accountId));
+  if (parser) form.set("parser", parser);
+  form.set("file", file);
+  for (const [k, v] of Object.entries(extra)) form.set(k, v);
+  return form;
+}
+
+export function useImportPreview() {
+  return useMutation({
+    mutationFn: ({
+      accountId,
+      parser,
+      file,
+    }: {
+      accountId: number;
+      parser: string;
+      file: File;
+    }) =>
+      apiForm<ImportPreview>(
+        "/api/imports/preview",
+        importForm(accountId, parser, file),
+      ),
+  });
+}
+
+export function useImportCommit() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      accountId,
+      parser,
+      file,
+      overrides,
+      skip,
+    }: {
+      accountId: number;
+      parser: string;
+      file: File;
+      overrides: Record<string, number | null>;
+      skip: string[];
+    }) =>
+      apiForm<ImportCommitResult>(
+        "/api/imports/commit",
+        importForm(accountId, parser, file, {
+          overrides: JSON.stringify(overrides),
+          skip: JSON.stringify(skip),
+        }),
+      ),
+    onSuccess: () => {
+      invalidateLedger(qc);
+      qc.invalidateQueries({ queryKey: ["review-queue"] });
+      qc.invalidateQueries({ queryKey: ["merchant-rules"] });
+    },
+  });
+}
+
+export function useReviewQueue() {
+  return useQuery({
+    queryKey: ["review-queue"],
+    queryFn: () => api<ReviewQueue>("/api/imports/review-queue"),
   });
 }

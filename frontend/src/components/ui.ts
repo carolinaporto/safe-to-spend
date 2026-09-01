@@ -127,8 +127,8 @@ export const Table = styled.table`
   font-size: ${({ theme }) => theme.fontSize.sm};
 `;
 
-export const Th = styled.th`
-  text-align: left;
+export const Th = styled.th<{ $align?: "left" | "right" | "center" }>`
+  text-align: ${({ $align }) => $align ?? "left"};
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
   color: ${({ theme }) => theme.color.textMuted};
   font-weight: ${({ theme }) => theme.fontWeight.medium};
@@ -136,7 +136,8 @@ export const Th = styled.th`
   white-space: nowrap;
 `;
 
-export const Td = styled.td`
+export const Td = styled.td<{ $align?: "left" | "right" | "center" }>`
+  text-align: ${({ $align }) => $align ?? "left"};
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
   border-bottom: 1px solid ${({ theme }) => theme.color.border};
 `;
