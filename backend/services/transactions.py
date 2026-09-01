@@ -60,8 +60,9 @@ def _apply_conversion(
     txn.currency = currency
     txn.fx_rate_to_usd = conversion.rate
     txn.amount_usd = conversion.amount_usd
-    if currency != "USD" and conversion.stale:
-        txn.needs_review = True
+    # Reflects the current rate situation: a re-priced row with a real rate now
+    # clears its own review flag; a still-stale one keeps it.
+    txn.needs_review = currency != "USD" and conversion.stale
 
 
 def create_transaction(db: Session, body: TransactionCreate) -> Transaction:
@@ -116,7 +117,6 @@ def update_transaction(
         "notes",
         "is_reimbursable",
         "excluded_from_my_budget",
-        "needs_review",
         "category_id",
         "tags",
         "date",
@@ -133,9 +133,14 @@ def update_transaction(
     if "amount" in data:
         txn.amount = data["amount"]
 
-    # Recompute the persisted USD value if anything it depends on moved.
+    # Recompute the persisted USD value if anything it depends on moved
+    # (this also refreshes needs_review from the current rate situation).
     if {"amount", "account_id", "date"} & data.keys():
         _apply_conversion(db, txn, account.currency.value, txn.date)
+
+    # An explicit needs_review in the request always wins.
+    if "needs_review" in data:
+        txn.needs_review = data["needs_review"]
 
     db.commit()
     db.refresh(txn)

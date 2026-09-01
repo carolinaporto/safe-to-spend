@@ -116,6 +116,39 @@ def test_by_category_excludes_transfers_and_adjustments(
     assert rows == {"Groceries": "80.00"}
 
 
+def test_by_category_ignores_a_malformed_inbound_expense(
+    api_client: TestClient,
+    auth_headers: dict,
+    account: Account,
+    groceries: Category,
+    db: Session,
+) -> None:
+    today = dt.date.today()
+    _txn(
+        db,
+        account,
+        kind=TransactionKind.expense,
+        direction=TransactionDirection.out,
+        amount="20.00",
+        on=today,
+        category=groceries,
+    )
+    # a would-be data glitch: expense row pointing the wrong way
+    _txn(
+        db,
+        account,
+        kind=TransactionKind.expense,
+        direction=TransactionDirection.in_,
+        amount="999.00",
+        on=today,
+        category=groceries,
+    )
+    body = api_client.get(
+        "/api/dashboard/by-category", headers=auth_headers
+    ).json()
+    assert body["categories"][0]["amount_usd"] == "20.00"
+
+
 def test_by_category_grouped_by_month(
     api_client: TestClient,
     auth_headers: dict,

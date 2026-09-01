@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
 from backend.models import LEDGER_MODELS
+from backend.services.runway import default_plan_config
 
 
 def wipe_ledger(db: Session) -> None:
@@ -35,6 +36,9 @@ def reset() -> dict[str, int]:
             for model in LEDGER_MODELS
         }
         wipe_ledger(db)
+        # Keep the plan_config singleton so the dashboard has a window to work
+        # with; the user edits it in Settings.
+        db.add(default_plan_config())
         db.commit()
         return removed
     finally:

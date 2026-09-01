@@ -31,17 +31,22 @@ DAYS_PER_MONTH = Decimal("30.4375")
 MIN_MONTHS_REMAINING = Decimal("0.1")
 
 
+def default_plan_config() -> PlanConfig:
+    """A blank plan spanning roughly one academic year from today."""
+    today = dt.date.today()
+    return PlanConfig(
+        id=PLAN_CONFIG_ID,
+        academic_year_start=today,
+        academic_year_end=today + dt.timedelta(days=270),
+        emergency_reserve_usd=ZERO,
+        committed_costs=[],
+    )
+
+
 def get_plan_config(db: Session) -> PlanConfig:
     config = db.get(PlanConfig, PLAN_CONFIG_ID)
     if config is None:
-        today = dt.date.today()
-        config = PlanConfig(
-            id=PLAN_CONFIG_ID,
-            academic_year_start=today,
-            academic_year_end=today + dt.timedelta(days=270),
-            emergency_reserve_usd=ZERO,
-            committed_costs=[],
-        )
+        config = default_plan_config()
         db.add(config)
         db.flush()
     return config

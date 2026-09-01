@@ -120,6 +120,44 @@ def test_brl_expense_without_a_rate_is_flagged_for_review(
     assert resp.json()["needs_review"] is True
 
 
+def test_editing_a_flagged_txn_clears_review_once_a_rate_exists(
+    api_client: TestClient,
+    auth_headers: dict,
+    brl_account: Account,
+    db: Session,
+) -> None:
+    created = api_client.post(
+        "/api/transactions",
+        json={
+            "account_id": brl_account.id,
+            "kind": "expense",
+            "amount": "100.00",
+            "date": "2025-09-10",
+        },
+        headers=auth_headers,
+    ).json()
+    assert created["needs_review"] is True
+
+    db.add(
+        FxRate(
+            date=dt.date(2025, 9, 10),
+            base="BRL",
+            quote="USD",
+            rate=Decimal("0.19000000"),
+            source="test",
+        )
+    )
+    db.flush()
+
+    patched = api_client.patch(
+        f"/api/transactions/{created['id']}",
+        json={"amount": "100.00"},
+        headers=auth_headers,
+    ).json()
+    assert patched["needs_review"] is False
+    assert patched["amount_usd"] == "19.00"
+
+
 def test_patch_amount_recomputes_usd(
     api_client: TestClient, auth_headers: dict, usd_account: Account
 ) -> None:

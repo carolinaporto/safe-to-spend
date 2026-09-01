@@ -13,7 +13,11 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from backend.models.category import Category
-from backend.models.enums import CategoryNature, TransactionKind
+from backend.models.enums import (
+    CategoryNature,
+    TransactionDirection,
+    TransactionKind,
+)
 from backend.models.transaction import Transaction
 from backend.money import ZERO, money
 
@@ -35,6 +39,7 @@ def add_months(d: dt.date, n: int) -> dt.date:
 def _consumption_where():
     return (
         Transaction.kind == TransactionKind.expense,
+        Transaction.direction == TransactionDirection.out.value,
         Transaction.excluded_from_my_budget.is_(False),
     )
 
