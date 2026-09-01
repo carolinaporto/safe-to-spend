@@ -69,7 +69,7 @@ pip install -r requirements.txt
 cp .env.example .env          # DATABASE_URL is pre-filled for the Docker DB
 python -m backend.scripts.hash_password "your-password"   # paste into APP_PASSWORD_HASH
 alembic upgrade head
-python -m backend.seed
+python -m backend.seed                # realistic fake data (dev / demo)
 uvicorn backend.main:app --reload
 
 # Frontend
@@ -77,6 +77,15 @@ cd frontend && cp .env.example .env && npm install && npm run dev
 ```
 
 Backend on `:8000`, frontend on `:5173`. Environment variables are documented in `.env.example`.
+
+To use the app for real, start from an empty ledger instead of the seed:
+
+```bash
+python -m backend.reset              # wipes accounts/transactions/budgets/…
+```
+
+Then add your accounts and academic-year plan in **Settings**. Don't run
+`backend.seed` again afterwards — it would erase your data and refill fakes.
 
 ---
 

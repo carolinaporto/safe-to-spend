@@ -13,7 +13,6 @@ import datetime as dt
 import random
 from decimal import Decimal
 
-from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
@@ -34,6 +33,7 @@ from backend.models.person import Person
 from backend.models.plan_config import PLAN_CONFIG_ID, PlanConfig
 from backend.models.transaction import Transaction
 from backend.money import money
+from backend.reset import wipe_ledger
 from backend.services.fx import convert_to_usd
 
 def _months_back(date: dt.date, n: int) -> dt.date:
@@ -148,14 +148,7 @@ def _months(start: dt.date, end: dt.date):
 
 
 def _wipe(db: Session) -> None:
-    db.execute(delete(Budget))
-    db.execute(delete(PlanConfig))
-    db.execute(delete(Transaction))
-    db.execute(delete(FxRate))
-    db.execute(delete(Account))
-    db.execute(delete(Category))
-    db.execute(delete(Person))
-    db.flush()
+    wipe_ledger(db)
 
 
 def _seed_people(db: Session) -> None:
