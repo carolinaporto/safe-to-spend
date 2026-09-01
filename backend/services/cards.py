@@ -4,7 +4,6 @@ Category spending is accrual (purchase date); this panel is the cash view —
 current balance, the closed statement, and when it's due.
 """
 
-import calendar
 import datetime as dt
 from dataclasses import dataclass
 from decimal import Decimal
@@ -16,6 +15,7 @@ from backend.models.account import Account
 from backend.models.enums import AccountKind
 from backend.money import ZERO, money
 from backend.services.balances import balance_in_usd, native_balances
+from backend.services.dates import clamp_day
 
 ALERT_DAYS = 5
 
@@ -33,24 +33,20 @@ class CardPanel:
     alert: bool
 
 
-def _clamp_day(year: int, month: int, day: int) -> dt.date:
-    return dt.date(year, month, min(day, calendar.monthrange(year, month)[1]))
-
-
 def _last_on_or_before(today: dt.date, day: int) -> dt.date:
-    this_month = _clamp_day(today.year, today.month, day)
+    this_month = clamp_day(today.year, today.month, day)
     if this_month <= today:
         return this_month
     prev = today.replace(day=1) - dt.timedelta(days=1)
-    return _clamp_day(prev.year, prev.month, day)
+    return clamp_day(prev.year, prev.month, day)
 
 
 def _next_after(anchor: dt.date, day: int) -> dt.date:
-    same_month = _clamp_day(anchor.year, anchor.month, day)
+    same_month = clamp_day(anchor.year, anchor.month, day)
     if same_month > anchor:
         return same_month
     nxt = (anchor.replace(day=28) + dt.timedelta(days=7)).replace(day=1)
-    return _clamp_day(nxt.year, nxt.month, day)
+    return clamp_day(nxt.year, nxt.month, day)
 
 
 def _owed_usd(db: Session, account: Account, on_date: dt.date) -> Decimal:

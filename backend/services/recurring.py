@@ -1,6 +1,5 @@
 """Recurring rules: templates that generate transactions on a schedule."""
 
-import calendar
 import datetime as dt
 
 from sqlalchemy import select
@@ -13,13 +12,8 @@ from backend.models.enums import (
 )
 from backend.models.recurring_rule import RecurringRule
 from backend.models.transaction import Transaction
+from backend.services.dates import add_months, clamp_day
 from backend.services.fx import convert_to_usd
-from backend.services.spending import add_months
-
-
-def _clamp_day(year: int, month: int, day: int) -> dt.date:
-    last = calendar.monthrange(year, month)[1]
-    return dt.date(year, month, min(day, last))
 
 
 def occurrences(
@@ -41,14 +35,14 @@ def occurrences(
     elif rule.frequency.value == "monthly":
         month = dt.date(start.year, start.month, 1)
         while month <= end:
-            occ = _clamp_day(month.year, month.month, rule.day_of_month)
+            occ = clamp_day(month.year, month.month, rule.day_of_month)
             if since <= occ <= end and occ >= rule.start_date:
                 out.append(occ)
             month = add_months(month, 1)
     else:  # yearly
         year = start.year
         while dt.date(year, 1, 1) <= end:
-            occ = _clamp_day(year, rule.start_date.month, rule.start_date.day)
+            occ = clamp_day(year, rule.start_date.month, rule.start_date.day)
             if since <= occ <= end and occ >= rule.start_date:
                 out.append(occ)
             year += 1

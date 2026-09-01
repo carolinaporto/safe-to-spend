@@ -11,13 +11,8 @@ from backend.models.budget import Budget
 from backend.models.category import Category
 from backend.models.enums import CategoryNature
 from backend.money import ZERO, money
-from backend.services.spending import (
-    add_months,
-    by_category,
-    month_end,
-    month_start,
-    total_consumption,
-)
+from backend.services.dates import add_months, month_end, month_start
+from backend.services.spending import by_category, total_consumption
 
 BUDGETABLE_NATURES = (
     CategoryNature.essential,

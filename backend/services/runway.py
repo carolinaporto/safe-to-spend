@@ -11,7 +11,6 @@
 Open credit-card statements are already reflected as negative card balances.
 """
 
-import calendar
 import datetime as dt
 from dataclasses import dataclass
 from decimal import Decimal
@@ -21,13 +20,9 @@ from sqlalchemy.orm import Session
 from backend.models.plan_config import PLAN_CONFIG_ID, PlanConfig
 from backend.money import ZERO, money, to_decimal
 from backend.services.balances import account_balances, net_worth
+from backend.services.dates import month_end, month_start
 from backend.services.people import total_liabilities, total_receivables
-from backend.services.spending import (
-    month_end,
-    month_start,
-    total_consumption,
-    trailing_daily_burn,
-)
+from backend.services.spending import total_consumption, trailing_daily_burn
 
 DAYS_PER_MONTH = Decimal("30.4375")
 MIN_MONTHS_REMAINING = Decimal("0.1")
@@ -66,8 +61,8 @@ def future_committed_costs(
 
 
 def net_worth_usd(db: Session, on_date: dt.date) -> Decimal:
-    accounts = net_worth(account_balances(db, as_of=on_date))
-    return money(accounts + total_receivables(db) - total_liabilities(db))
+    owned = net_worth(account_balances(db, as_of=on_date))
+    return money(owned + total_receivables(db) - total_liabilities(db))
 
 
 @dataclass
@@ -108,7 +103,8 @@ def compute_overview(db: Session, today: dt.date | None = None) -> Overview:
 
     receivables = total_receivables(db)
     liabilities = total_liabilities(db)
-    nw = net_worth_usd(db, today)
+    owned = net_worth(account_balances(db, as_of=today))
+    nw = money(owned + receivables - liabilities)
     reserve = money(config.emergency_reserve_usd)
     committed = future_committed_costs(config, today)
     available = money(nw - reserve - committed)
@@ -124,7 +120,7 @@ def compute_overview(db: Session, today: dt.date | None = None) -> Overview:
     )
     remaining_month = money(monthly_ceiling - mtd)
 
-    days_in_month = calendar.monthrange(today.year, today.month)[1]
+    days_in_month = month_end(today).day
     days_remaining_in_month = (month_end(today) - today).days + 1
     daily_allowance = money(
         remaining_month / Decimal(days_remaining_in_month)
