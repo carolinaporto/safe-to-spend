@@ -172,11 +172,7 @@ export function TransferCostChart({ transfers }: { transfers: Transfer[] }) {
   let running = 0;
   const data = ordered.map((t) => {
     running += toPlotNumber(t.fx_cost_usd);
-    return {
-      date: t.date,
-      cost: toPlotNumber(t.fx_cost_usd),
-      cumulative: Number(running.toFixed(2)),
-    };
+    return { date: t.date, cumulative: Number(running.toFixed(2)) };
   });
 
   if (data.length === 0) return null;
@@ -226,7 +222,6 @@ export function ProviderRateChart({
   const data = providers.map((p) => ({
     provider: p.provider,
     rate: toPlotNumber(p.avg_effective_rate),
-    cost: toPlotNumber(p.fx_cost_usd),
   }));
 
   if (data.length === 0) return null;

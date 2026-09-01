@@ -43,6 +43,7 @@ class PreviewRow:
     category_id: int | None
     category_name: str | None
     amount_usd: Decimal
+    fx_rate: Decimal
     fx_stale: bool
     status: str
     external_id: str | None = None
@@ -90,10 +91,8 @@ def _existing_keys(
         )
     ).all()
     keys = {
-        content_key(d, amount, merchant or "", currency)
-        for d, amount, merchant, currency in (
-            (r.date, r.amount, r.merchant_raw, r.currency) for r in rows
-        )
+        content_key(r.date, r.amount, r.merchant_raw or "", r.currency)
+        for r in rows
     }
     externals = {r.external_id for r in rows if r.external_id}
     return keys, externals
@@ -151,6 +150,7 @@ def build_preview(
                 category_id=category_id,
                 category_name=categories.get(category_id),
                 amount_usd=conversion.amount_usd,
+                fx_rate=conversion.rate,
                 fx_stale=fx_stale,
                 status=status,
                 external_id=row.external_id,
@@ -211,9 +211,7 @@ def commit_import(
                 kind=_KIND_BY_DIRECTION[direction],
                 amount=row.amount,
                 currency=row.currency,
-                fx_rate_to_usd=convert_to_usd(
-                    db, row.amount, row.currency, row.date
-                ).rate,
+                fx_rate_to_usd=row.fx_rate,
                 amount_usd=row.amount_usd,
                 category_id=category_id,
                 merchant_raw=row.merchant_raw,

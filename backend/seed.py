@@ -41,18 +41,12 @@ from backend.models.transaction import Transaction
 from backend.models.transfer import Transfer
 from backend.money import money
 from backend.reset import wipe_ledger
+from backend.services.dates import add_months
 from backend.services.fx import convert_to_usd
 from backend.services.transfers import TransferInput, build_transfer
 
-
-def _months_back(date: dt.date, n: int) -> dt.date:
-    """First day of the month ``n`` months before ``date``'s month."""
-    month_index = date.year * 12 + (date.month - 1) - n
-    return dt.date(month_index // 12, month_index % 12 + 1, 1)
-
-
 END = dt.date.today()
-START = _months_back(END, 3)  # ~4 months of history, ending today
+START = add_months(END, -3)  # ~4 months of history, ending today
 
 PEOPLE = [
     ("You", PersonRole.me),
@@ -539,7 +533,7 @@ def _seed_plan_config(db: Session) -> None:
         PlanConfig(
             id=PLAN_CONFIG_ID,
             academic_year_start=START,
-            academic_year_end=add_months_forward(END, 7).replace(day=20),
+            academic_year_end=add_months(END, 7).replace(day=20),
             emergency_reserve_usd=Decimal("1500.00"),
             committed_costs=[
                 {
@@ -564,7 +558,7 @@ def _seed_plan_config(db: Session) -> None:
 
 
 def _seed_budgets(db: Session, cats: dict[str, Category]) -> None:
-    for month in _months(START, add_months_forward(END, 1)):
+    for month in _months(START, add_months(END, 1)):
         for name, amount in MONTHLY_BUDGET.items():
             db.add(
                 Budget(
@@ -575,11 +569,6 @@ def _seed_budgets(db: Session, cats: dict[str, Category]) -> None:
                 )
             )
     db.flush()
-
-
-def add_months_forward(d: dt.date, n: int) -> dt.date:
-    index = d.year * 12 + (d.month - 1) + n
-    return dt.date(index // 12, index % 12 + 1, 1)
 
 
 # pattern -> (category name, clean name)

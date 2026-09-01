@@ -7,7 +7,6 @@ are subtracted (invariant 8). Gifts on external cards count in the category
 *report* but not in the budget/pace (spec 4.4).
 """
 
-import calendar
 import datetime as dt
 from decimal import Decimal
 
@@ -25,20 +24,6 @@ from backend.models.enums import (
 from backend.models.expense_share import ExpenseShare
 from backend.models.transaction import Transaction
 from backend.money import ZERO, money
-
-
-def month_start(d: dt.date) -> dt.date:
-    return d.replace(day=1)
-
-
-def month_end(d: dt.date) -> dt.date:
-    return d.replace(day=calendar.monthrange(d.year, d.month)[1])
-
-
-def add_months(d: dt.date, n: int) -> dt.date:
-    index = d.year * 12 + (d.month - 1) + n
-    return dt.date(index // 12, index % 12 + 1, 1)
-
 
 _MONTH = func.to_char(Transaction.date, "YYYY-MM-01")
 _SUM = func.coalesce(func.sum(Transaction.amount_usd), 0)
