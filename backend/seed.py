@@ -36,6 +36,7 @@ from backend.money import money
 from backend.reset import wipe_ledger
 from backend.services.fx import convert_to_usd
 
+
 def _months_back(date: dt.date, n: int) -> dt.date:
     """First day of the month ``n`` months before ``date``'s month."""
     month_index = date.year * 12 + (date.month - 1) - n

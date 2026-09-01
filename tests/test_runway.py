@@ -13,7 +13,7 @@ from backend.models.enums import (
     TransactionDirection,
     TransactionKind,
 )
-from backend.models.plan_config import PlanConfig, PLAN_CONFIG_ID
+from backend.models.plan_config import PLAN_CONFIG_ID, PlanConfig
 from backend.models.transaction import Transaction
 from backend.services.runway import compute_overview, future_committed_costs
 

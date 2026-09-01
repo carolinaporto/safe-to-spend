@@ -91,10 +91,6 @@ export const GhostButton = styled(Button)`
   }
 `;
 
-export const DangerButton = styled(Button)`
-  background: ${({ theme }) => theme.color.danger};
-`;
-
 export const Stack = styled.div<{ $gap?: SpaceKey }>`
   display: flex;
   flex-direction: column;
@@ -148,16 +144,4 @@ export const Td = styled.td`
 export const TableScroll = styled.div`
   width: 100%;
   overflow-x: auto;
-`;
-
-export const MoneyText = styled.span<{ $tone?: "in" | "out" | "muted" }>`
-  font-variant-numeric: tabular-nums;
-  color: ${({ theme, $tone }) =>
-    $tone === "in"
-      ? theme.color.inflow
-      : $tone === "out"
-        ? theme.color.text
-        : $tone === "muted"
-          ? theme.color.textMuted
-          : theme.color.text};
 `;

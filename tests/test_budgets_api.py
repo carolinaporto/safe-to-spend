@@ -63,7 +63,7 @@ def test_empty_month_returns_zeroed_lines(
     body = api_client.get("/api/budgets/2026-08", headers=auth_headers).json()
     assert body["lines"][0]["name"] == "Monthly ceiling"
     assert body["lines"][0]["amount_usd"] == "0.00"
-    groc = next(l for l in body["lines"] if l["name"] == "Groceries")
+    groc = next(bl for bl in body["lines"] if bl["name"] == "Groceries")
     assert groc["amount_usd"] == "0.00"
 
 
@@ -91,7 +91,7 @@ def test_put_then_get_shows_amount_spent_and_remaining(
         },
     )
     assert put.status_code == 200
-    groc = next(l for l in put.json()["lines"] if l["name"] == "Groceries")
+    groc = next(bl for bl in put.json()["lines"] if bl["name"] == "Groceries")
     assert groc["amount_usd"] == "400.00"
     assert groc["spent_usd"] == "120.00"
     assert groc["remaining_usd"] == "280.00"
@@ -129,7 +129,7 @@ def test_copy_from_previous_month(
     )
     assert copied.status_code == 200
     groc = next(
-        l for l in copied.json()["lines"] if l["name"] == "Groceries"
+        bl for bl in copied.json()["lines"] if bl["name"] == "Groceries"
     )
     assert groc["amount_usd"] == "300.00"
 
@@ -179,6 +179,6 @@ def test_rollover_carries_unspent_budget_forward(
         },
     )
     body = api_client.get("/api/budgets/2026-08", headers=auth_headers).json()
-    groc = next(l for l in body["lines"] if l["name"] == "Groceries")
+    groc = next(bl for bl in body["lines"] if bl["name"] == "Groceries")
     assert groc["rollover_in_usd"] == "200.00"
     assert groc["remaining_usd"] == "500.00"

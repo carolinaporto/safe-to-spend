@@ -33,8 +33,6 @@ router = APIRouter(
     dependencies=[Depends(require_auth)],
 )
 
-NATURES = ["essential", "discretionary", "setup", "fee", "uncategorized"]
-
 
 # ------------------------------------------------------------------ balances
 

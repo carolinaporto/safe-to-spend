@@ -58,15 +58,16 @@ def reset() -> dict[str, int]:
 
 def main() -> None:
     if "--yes" not in sys.argv:
-        answer = input(
-            "This deletes every account, transaction and budget. Type 'wipe' to confirm: "
+        prompt = (
+            "This deletes every account, transaction and budget. "
+            "Type 'wipe' to confirm: "
         )
-        if answer.strip().lower() != "wipe":
+        if input(prompt).strip().lower() != "wipe":
             print("Aborted.")
             raise SystemExit(1)
     for table, count in reset().items():
         print(f"{table:>13}: removed {count}")
-    print("\nDone. Add your accounts and plan in Settings; import statements in Phase 3.")
+    print("\nDone. Add your accounts and plan in Settings, then import statements.")
 
 
 if __name__ == "__main__":

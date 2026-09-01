@@ -13,7 +13,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from backend.models.fx_rate import FxRate
-from backend.money import ONE, money, rate as quantize_rate
+from backend.money import ONE, money
+from backend.money import rate as quantize_rate
 
 USD = "USD"
 

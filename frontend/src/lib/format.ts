@@ -1,9 +1,9 @@
-import type { Currency } from "./types";
-
 const SYMBOL: Record<string, string> = { USD: "$", BRL: "R$" };
 
-/** Format an API money string for display. Keeps the exact cents from the
- *  server; only adds a grouping separator and a currency symbol. */
+/** Format an API money string for display. Operates on the string directly —
+ *  never Number()/Intl.NumberFormat — so the exact cents from the server are
+ *  preserved (no float touches a monetary value). Adds a grouping separator
+ *  and a currency symbol only. */
 export function formatMoney(value: string, currency: string = "USD"): string {
   const negative = value.trim().startsWith("-");
   const [whole, cents = "00"] = value.replace("-", "").split(".");
@@ -15,10 +15,6 @@ export function formatMoney(value: string, currency: string = "USD"): string {
 export function formatDate(iso: string): string {
   const [y, m, d] = iso.slice(0, 10).split("-");
   return `${d}/${m}/${y}`;
-}
-
-export function currencyOptions(): Currency[] {
-  return ["USD", "BRL"];
 }
 
 /** For chart plotting ONLY. Never use the result for money arithmetic that

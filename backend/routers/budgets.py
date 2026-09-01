@@ -1,3 +1,5 @@
+import datetime as dt
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -20,14 +22,14 @@ router = APIRouter(
 )
 
 
-def _month(month: str):
+def _month(month: str) -> dt.date:
     try:
         return parse_month(month)
     except (ValueError, IndexError):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "month must be YYYY-MM or YYYY-MM-DD",
-        )
+        ) from None
 
 
 def _serialize(db: Session, month) -> MonthBudgetOut:

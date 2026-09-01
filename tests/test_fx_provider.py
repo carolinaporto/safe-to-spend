@@ -45,7 +45,7 @@ def test_fetch_rate_raises_when_both_providers_fail() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500)
 
-    with pytest.raises(Exception):
+    with pytest.raises(httpx.HTTPStatusError):
         fx_provider.fetch_rate("USD", "BRL", client=_client(handler))
 
 

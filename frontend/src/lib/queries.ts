@@ -161,15 +161,6 @@ export function useUpdateTransaction() {
   });
 }
 
-export function useDeleteTransaction() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) =>
-      api<void>(`/api/transactions/${id}`, { method: "DELETE" }),
-    onSuccess: () => invalidateLedger(qc),
-  });
-}
-
 export function useBulkCategorize() {
   const qc = useQueryClient();
   return useMutation({

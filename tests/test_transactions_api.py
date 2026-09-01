@@ -173,7 +173,7 @@ def test_list_filters_and_pagination(
         )
 
     page = api_client.get(
-        "/api/transactions?category=%d&page_size=2" % groceries.id,
+        f"/api/transactions?category={groceries.id}&page_size=2",
         headers=auth_headers,
     ).json()
     assert page["total"] == 3
