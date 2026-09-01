@@ -5,7 +5,9 @@ from backend.models.account import Account
 from backend.models.budget import Budget
 from backend.models.category import Category
 from backend.models.fx_rate import FxRate
+from backend.models.import_batch import ImportBatch
 from backend.models.login_attempt import LoginAttempt
+from backend.models.merchant_rule import MerchantRule
 from backend.models.person import Person
 from backend.models.plan_config import PlanConfig
 from backend.models.transaction import Transaction
@@ -15,7 +17,9 @@ from backend.models.transaction import Transaction
 LEDGER_MODELS: tuple[type[Base], ...] = (
     Budget,
     PlanConfig,
+    MerchantRule,
     Transaction,
+    ImportBatch,
     FxRate,
     Account,
     Category,
@@ -28,7 +32,9 @@ __all__ = [
     "Budget",
     "Category",
     "FxRate",
+    "ImportBatch",
     "LoginAttempt",
+    "MerchantRule",
     "PlanConfig",
     "Person",
     "Transaction",

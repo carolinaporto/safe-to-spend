@@ -18,6 +18,8 @@ def test_seed_produces_a_realistic_dataset() -> None:
     assert counts["categories"] == 30
     assert counts["transactions"] > 120
     assert counts["fx_rates"] > 100
+    assert counts["budgets"] > 0
+    assert counts["merchant_rules"] > 0
 
 
 def test_seed_is_idempotent() -> None:

@@ -14,6 +14,8 @@ from backend.routers import (
     dashboard,
     fx,
     health,
+    imports,
+    merchant_rules,
     meta,
     plan_config,
     transactions,
@@ -62,4 +64,6 @@ app.include_router(transactions.router)
 app.include_router(dashboard.router)
 app.include_router(budgets.router)
 app.include_router(plan_config.router)
+app.include_router(merchant_rules.router)
+app.include_router(imports.router)
 app.include_router(backup.router)

@@ -185,3 +185,72 @@ export interface PlanConfig {
   emergency_reserve_usd: string;
   committed_costs: CommittedCost[];
 }
+
+// ---------------------------------------------------------------- import
+
+export type MerchantMatchType = "contains" | "regex";
+export type ImportRowStatus = "new" | "duplicate" | "uncategorized";
+
+export interface MerchantRule {
+  id: number;
+  pattern: string;
+  match_type: MerchantMatchType;
+  category_id: number | null;
+  merchant_clean: string | null;
+  priority: number;
+  hit_count: number;
+}
+
+export interface PreviewRow {
+  key: string;
+  date: string;
+  amount: string;
+  direction: TransactionDirection;
+  currency: string;
+  merchant_raw: string;
+  merchant_clean: string | null;
+  category_id: number | null;
+  category_name: string | null;
+  amount_usd: string;
+  fx_stale: boolean;
+  status: ImportRowStatus;
+  external_id: string | null;
+}
+
+export interface ImportPreview {
+  parser: string;
+  account_id: number;
+  filename: string;
+  rows: PreviewRow[];
+  summary: { total: number; new: number; duplicate: number; uncategorized: number };
+}
+
+export interface ImportCommitResult {
+  batch_id: number;
+  parser: string;
+  filename: string;
+  row_count: number;
+  imported_count: number;
+  duplicate_count: number;
+}
+
+export interface ReviewItem {
+  id: number;
+  date: string;
+  account_id: number;
+  amount: string;
+  currency: string;
+  amount_usd: string;
+  merchant_raw: string | null;
+  merchant_clean: string | null;
+  description: string;
+  category_id: number | null;
+  direction: TransactionDirection;
+  kind: TransactionKind;
+  source: string;
+}
+
+export interface ReviewQueue {
+  items: ReviewItem[];
+  total: number;
+}

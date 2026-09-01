@@ -4,6 +4,7 @@
 # Web framework
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
+python-multipart==0.0.20  # CSV file uploads
 
 # Data validation / settings
 pydantic==2.10.4

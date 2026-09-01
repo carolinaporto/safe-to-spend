@@ -23,12 +23,14 @@ from backend.models.enums import (
     AccountKind,
     CategoryNature,
     Currency,
+    MerchantMatchType,
     PersonRole,
     TransactionDirection,
     TransactionKind,
     TransactionSource,
 )
 from backend.models.fx_rate import FxRate
+from backend.models.merchant_rule import MerchantRule
 from backend.models.person import Person
 from backend.models.plan_config import PLAN_CONFIG_ID, PlanConfig
 from backend.models.transaction import Transaction
@@ -429,6 +431,43 @@ def add_months_forward(d: dt.date, n: int) -> dt.date:
     return dt.date(index // 12, index % 12 + 1, 1)
 
 
+# pattern -> (category name, clean name)
+MERCHANT_RULES = {
+    "TRADER JOE": ("Groceries", "Trader Joe's"),
+    "WHOLE FOODS": ("Groceries", "Whole Foods"),
+    "STAR MARKET": ("Groceries", "Star Market"),
+    "H MART": ("Groceries", "H Mart"),
+    "BLUE BOTTLE": ("Coffee", "Blue Bottle"),
+    "TATTE": ("Coffee", "Tatte"),
+    "DUNKIN": ("Coffee", "Dunkin'"),
+    "MBTA": ("Transport", "MBTA"),
+    "BLUEBIKES": ("Transport", "Bluebikes"),
+    "LYFT": ("Transport", "Lyft"),
+    "COMCAST": ("Phone/Internet", "Comcast"),
+    "EVERSOURCE": ("Utilities", "Eversource"),
+    "NATIONAL GRID": ("Utilities", "National Grid"),
+    "SPOTIFY": ("Subscriptions", "Spotify"),
+    "NETFLIX": ("Subscriptions", "Netflix"),
+    "CVS": ("Health/Insurance", "CVS Pharmacy"),
+}
+
+
+def _seed_merchant_rules(db: Session, cats: dict[str, Category]) -> None:
+    for priority, (pattern, (cat_name, clean)) in enumerate(
+        reversed(MERCHANT_RULES.items()), start=100
+    ):
+        db.add(
+            MerchantRule(
+                pattern=pattern,
+                match_type=MerchantMatchType.contains,
+                category_id=cats[cat_name].id,
+                merchant_clean=clean,
+                priority=priority,
+            )
+        )
+    db.flush()
+
+
 def seed() -> dict[str, int]:
     db = SessionLocal()
     try:
@@ -440,6 +479,7 @@ def seed() -> dict[str, int]:
         _seed_transactions(db, accounts, categories)
         _seed_plan_config(db)
         _seed_budgets(db, categories)
+        _seed_merchant_rules(db, categories)
         db.commit()
         return {
             "people": db.query(Person).count(),
@@ -448,6 +488,7 @@ def seed() -> dict[str, int]:
             "fx_rates": db.query(FxRate).count(),
             "transactions": db.query(Transaction).count(),
             "budgets": db.query(Budget).count(),
+            "merchant_rules": db.query(MerchantRule).count(),
         }
     finally:
         db.close()
