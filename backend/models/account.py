@@ -20,7 +20,7 @@ class Account(Base):
     opening_balance: Mapped[Money] = mapped_column(default=Decimal("0.00"))
     opening_date: Mapped[dt.date] = mapped_column(Date)
 
-    # Credit-card statement cycle (used from Phase 4).
+    # Credit-card statement cycle: day of month the statement closes / is due.
     statement_day: Mapped[int | None] = mapped_column(Integer)
     due_day: Mapped[int | None] = mapped_column(Integer)
 
