@@ -12,32 +12,15 @@ database with fake data and erase what you entered.
 
 import sys
 
-from sqlalchemy import delete
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from backend.database import SessionLocal
-from backend.models.account import Account
-from backend.models.budget import Budget
-from backend.models.category import Category
-from backend.models.fx_rate import FxRate
-from backend.models.person import Person
-from backend.models.plan_config import PlanConfig
-from backend.models.transaction import Transaction
-
-# FK-safe order.
-_LEDGER_MODELS = (
-    Budget,
-    PlanConfig,
-    Transaction,
-    FxRate,
-    Account,
-    Category,
-    Person,
-)
+from backend.models import LEDGER_MODELS
 
 
 def wipe_ledger(db: Session) -> None:
-    for model in _LEDGER_MODELS:
+    for model in LEDGER_MODELS:
         db.execute(delete(model))
     db.flush()
 
@@ -46,8 +29,10 @@ def reset() -> dict[str, int]:
     db = SessionLocal()
     try:
         removed = {
-            model.__tablename__: db.query(model).count()
-            for model in _LEDGER_MODELS
+            model.__tablename__: db.scalar(
+                select(func.count()).select_from(model)
+            )
+            for model in LEDGER_MODELS
         }
         wipe_ledger(db)
         db.commit()

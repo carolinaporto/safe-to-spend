@@ -5,11 +5,7 @@ from sqlalchemy.orm import Session
 
 from backend.database import get_db
 from backend.deps import deny_in_demo, require_auth
-from backend.schemas.budget import (
-    BudgetLineOut,
-    MonthBudgetIn,
-    MonthBudgetOut,
-)
+from backend.schemas.budget import BudgetLineOut, MonthBudgetIn, MonthBudgetOut
 from backend.services.budgets import (
     copy_from_previous,
     get_month_budget,
@@ -32,20 +28,11 @@ def _month(month: str) -> dt.date:
         ) from None
 
 
-def _serialize(db: Session, month) -> MonthBudgetOut:
+def _serialize(db: Session, month: dt.date) -> MonthBudgetOut:
     return MonthBudgetOut(
         month=month,
         lines=[
-            BudgetLineOut(
-                category_id=line.category_id,
-                name=line.name,
-                nature=line.nature,
-                amount_usd=line.amount_usd,
-                rollover=line.rollover,
-                rollover_in_usd=line.rollover_in_usd,
-                spent_usd=line.spent_usd,
-                remaining_usd=line.remaining_usd,
-            )
+            BudgetLineOut.model_validate(line)
             for line in get_month_budget(db, month)
         ],
     )

@@ -1,5 +1,3 @@
-import json
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -35,11 +33,11 @@ def update_plan_config(
         config.academic_year_end = data["academic_year_end"]
     if "emergency_reserve_usd" in data:
         config.emergency_reserve_usd = data["emergency_reserve_usd"]
-    if "committed_costs" in data:
+    if body.committed_costs is not None:
         # Store as plain JSON-serialisable dicts (strings for money/dates).
-        config.committed_costs = json.loads(
-            body.model_dump_json(include={"committed_costs"})
-        )["committed_costs"]
+        config.committed_costs = [
+            cost.model_dump(mode="json") for cost in body.committed_costs
+        ]
 
     db.commit()
     db.refresh(config)

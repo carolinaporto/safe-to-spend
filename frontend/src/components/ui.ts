@@ -109,7 +109,7 @@ export const Field = styled.div`
   flex-direction: column;
 `;
 
-export const Badge = styled.span<{ $color?: string }>`
+export const Badge = styled.span`
   display: inline-flex;
   align-items: center;
   gap: ${({ theme }) => theme.space.xs};
@@ -118,7 +118,7 @@ export const Badge = styled.span<{ $color?: string }>`
   font-size: ${({ theme }) => theme.fontSize.xs};
   font-weight: ${({ theme }) => theme.fontWeight.medium};
   background: ${({ theme }) => theme.color.surfaceRaised};
-  color: ${({ $color, theme }) => $color ?? theme.color.textMuted};
+  color: ${({ theme }) => theme.color.textMuted};
 `;
 
 export const Table = styled.table`
