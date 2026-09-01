@@ -15,10 +15,14 @@ from backend.routers import (
     fx,
     health,
     imports,
+    income,
     merchant_rules,
     meta,
+    people,
     plan_config,
+    recurring_rules,
     transactions,
+    transfers,
 )
 
 configure_logging()
@@ -66,4 +70,8 @@ app.include_router(budgets.router)
 app.include_router(plan_config.router)
 app.include_router(merchant_rules.router)
 app.include_router(imports.router)
+app.include_router(transfers.router)
+app.include_router(people.router)
+app.include_router(recurring_rules.router)
+app.include_router(income.router)
 app.include_router(backup.router)

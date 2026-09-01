@@ -1,7 +1,7 @@
 import datetime as dt
 from decimal import Decimal
 
-from sqlalchemy import Date, Integer, String
+from sqlalchemy import Date, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.database import Base
@@ -28,6 +28,12 @@ class Account(Base):
     icon: Mapped[str] = mapped_column(String(40), default="")
     is_active: Mapped[bool] = mapped_column(default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    # For ``external`` accounts: the person whose card/money this is. An
+    # "I owe it back" purchase becomes a liability against them (spec 4.4).
+    owner_person_id: Mapped[int | None] = mapped_column(
+        ForeignKey("people.id", ondelete="SET NULL")
+    )
 
     @property
     def is_owned(self) -> bool:
