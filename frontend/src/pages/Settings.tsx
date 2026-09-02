@@ -56,6 +56,20 @@ const NATURES: CategoryNature[] = [
   "income",
 ];
 
+// Shown next to the nature picker so it's clear which bucket a new category
+// belongs in.
+const NATURE_HELP: Record<CategoryNature, string> = {
+  essential:
+    "Must-pay, no real choice — rent, groceries, transport, utilities, health. Counts toward your monthly pace.",
+  discretionary:
+    "Optional — you could skip it. Restaurants, coffee, clothes, streaming, trips. Counts toward your pace; first thing to cut when money is tight.",
+  setup:
+    "One-time move-in costs — furniture, deposit, electronics. Tracked, but left OUT of the daily allowance so a big week doesn't wreck the number.",
+  fee: "Bank and currency costs — card fees, IOF, FX spread.",
+  income:
+    "Money coming in — funding, salary/stipend, reimbursements, refunds.",
+};
+
 const Section = styled(Card)`
   display: flex;
   flex-direction: column;
@@ -95,6 +109,14 @@ const NatureLabel = styled.span<{ $nature: CategoryNature }>`
   font-weight: ${({ theme }) => theme.fontWeight.medium};
   text-transform: capitalize;
   color: ${({ theme, $nature }) => theme.nature[$nature]};
+`;
+
+const NatureHint = styled.p`
+  grid-column: 1 / -1;
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.textMuted};
+  max-width: 62ch;
+  margin-top: ${({ theme }) => theme.space.xxs};
 `;
 
 const CategoryName = styled.span<{ $archived: boolean }>`
@@ -346,6 +368,7 @@ function CategoriesSection() {
           return (
             <NatureGroup key={nature}>
               <NatureLabel $nature={nature}>{nature}</NatureLabel>
+              <NatureHint>{NATURE_HELP[nature]}</NatureHint>
               <Row $gap="sm">
                 {inNature.map((c) => (
                   <Badge key={c.id}>
@@ -407,6 +430,9 @@ function CategoriesSection() {
         <Button type="submit" disabled={save.isPending}>
           <Plus size={16} /> Add category
         </Button>
+        <NatureHint>
+          {NATURE_HELP[draft.nature as CategoryNature]}
+        </NatureHint>
       </AddForm>
       {error && <ErrorText>{error}</ErrorText>}
     </Section>
