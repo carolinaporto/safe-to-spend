@@ -41,4 +41,4 @@ def test_put_updates_fields_and_committed_costs(
 
 
 def test_requires_auth(api_client: TestClient) -> None:
-    assert api_client.get("/api/plan-config").status_code == 403
+    assert api_client.get("/api/plan-config").status_code == 401

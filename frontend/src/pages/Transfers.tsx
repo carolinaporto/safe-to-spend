@@ -1,4 +1,9 @@
-import { ArrowRight, Plus, TrashSimple } from "@phosphor-icons/react";
+import {
+  ArrowRight,
+  PencilSimple,
+  Plus,
+  TrashSimple,
+} from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import styled from "styled-components";
 
@@ -13,6 +18,7 @@ import {
   Input,
   Muted,
   PageTitle,
+  Row,
   Select,
   Stack,
   Table,
@@ -29,7 +35,9 @@ import {
   useDeleteTransfer,
   useTransfers,
   useTransferSummary,
+  useUpdateTransfer,
 } from "../lib/queries";
+import type { Transfer } from "../lib/types";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -78,10 +86,33 @@ export function Transfers() {
   const transfers = useTransfers();
   const summary = useTransferSummary();
   const create = useCreateTransfer();
+  const update = useUpdateTransfer();
   const remove = useDeleteTransfer();
   const meta = useMeta();
   const [draft, setDraft] = useState(emptyDraft);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  function editTransfer(t: Transfer) {
+    setEditingId(t.id);
+    setDraft({
+      from_account_id: String(t.from_account_id),
+      to_account_id: String(t.to_account_id),
+      amount_out: t.amount_out,
+      amount_in: t.amount_in,
+      market_rate: "",
+      provider: t.provider,
+      date: t.date.slice(0, 10),
+    });
+    setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setDraft(emptyDraft);
+    setError(null);
+  }
 
   const accountName = useMemo(
     () => new Map((accounts.data ?? []).map((a) => [a.id, a] as const)),
@@ -98,17 +129,23 @@ export function Transfers() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const body = {
+      date: draft.date,
+      from_account_id: Number(draft.from_account_id),
+      to_account_id: Number(draft.to_account_id),
+      amount_out: draft.amount_out,
+      amount_in: draft.amount_in,
+      provider: draft.provider,
+      ...(draft.market_rate ? { market_rate: draft.market_rate } : {}),
+    };
     try {
-      await create.mutateAsync({
-        date: draft.date,
-        from_account_id: Number(draft.from_account_id),
-        to_account_id: Number(draft.to_account_id),
-        amount_out: draft.amount_out,
-        amount_in: draft.amount_in,
-        provider: draft.provider,
-        ...(draft.market_rate ? { market_rate: draft.market_rate } : {}),
-      });
-      setDraft({ ...emptyDraft, date: draft.date, provider: draft.provider });
+      if (editingId !== null) {
+        await update.mutateAsync({ id: editingId, ...body });
+        cancelEdit();
+      } else {
+        await create.mutateAsync(body);
+        setDraft({ ...emptyDraft, date: draft.date, provider: draft.provider });
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save transfer");
     }
@@ -177,7 +214,11 @@ export function Transfers() {
 
       {!meta.demo_mode && (
         <Card>
-          <SectionTitle>Log a transfer</SectionTitle>
+          <SectionTitle>
+            {editingId !== null
+              ? `Edit transfer #${editingId}`
+              : "Log a transfer"}
+          </SectionTitle>
           <FormGrid onSubmit={submit}>
             <Field>
               <FieldLabel>From</FieldLabel>
@@ -263,9 +304,18 @@ export function Transfers() {
                 onChange={(e) => setDraft({ ...draft, date: e.target.value })}
               />
             </Field>
-            <Button type="submit" disabled={create.isPending}>
-              <Plus size={16} /> Add transfer
+            <Button
+              type="submit"
+              disabled={create.isPending || update.isPending}
+            >
+              <Plus size={16} />{" "}
+              {editingId !== null ? "Save changes" : "Add transfer"}
             </Button>
+            {editingId !== null && (
+              <GhostButton type="button" onClick={cancelEdit}>
+                Cancel
+              </GhostButton>
+            )}
           </FormGrid>
           {preview && (
             <Muted>Effective rate ≈ {preview} (amount in ÷ amount out)</Muted>
@@ -311,13 +361,25 @@ export function Transfers() {
                   <Td $align="right">{formatMoney(t.fx_cost_usd, "USD")}</Td>
                   <Td $align="right">
                     {!meta.demo_mode && (
-                      <GhostButton
-                        type="button"
-                        aria-label="Delete transfer"
-                        onClick={() => remove.mutate(t.id)}
-                      >
-                        <TrashSimple size={14} />
-                      </GhostButton>
+                      <Row $gap="xs">
+                        <GhostButton
+                          type="button"
+                          aria-label="Edit transfer"
+                          onClick={() => editTransfer(t)}
+                        >
+                          <PencilSimple size={14} />
+                        </GhostButton>
+                        <GhostButton
+                          type="button"
+                          aria-label="Delete transfer"
+                          onClick={() => {
+                            if (window.confirm("Delete this transfer?"))
+                              remove.mutate(t.id);
+                          }}
+                        >
+                          <TrashSimple size={14} />
+                        </GhostButton>
+                      </Row>
                     )}
                   </Td>
                 </tr>

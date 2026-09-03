@@ -1,4 +1,10 @@
-import { DownloadSimple, Warning } from "@phosphor-icons/react";
+import {
+  ArrowsLeftRight,
+  DownloadSimple,
+  PencilSimple,
+  TrashSimple,
+  Warning,
+} from "@phosphor-icons/react";
 import {
   createColumnHelper,
   flexRender,
@@ -13,6 +19,9 @@ import {
   Badge,
   Button,
   Card,
+  ErrorText,
+  Field,
+  FieldLabel,
   GhostButton,
   Input,
   Muted,
@@ -25,7 +34,7 @@ import {
   Td,
   Th,
 } from "../components/ui";
-import { getToken } from "../lib/api";
+import { ApiError, getToken } from "../lib/api";
 import { formatDate, formatMoney } from "../lib/format";
 import { useMeta } from "../lib/meta";
 import {
@@ -34,6 +43,7 @@ import {
   useAccounts,
   useBulkCategorize,
   useCategories,
+  useDeleteTransaction,
   useSaveMerchantRule,
   useTransactions,
   useUpdateTransaction,
@@ -93,10 +103,201 @@ const emptyFilters: TransactionFilters = { page: 1, page_size: 50 };
 
 const column = createColumnHelper<Transaction>();
 
+const EditCard = styled(Card)`
+  border-left: 3px solid ${({ theme }) => theme.color.primary};
+`;
+
+const EditGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: ${({ theme }) => theme.space.md};
+`;
+
+const MANUAL_KINDS = ["expense", "income", "adjustment"] as const;
+
+function EditTransactionPanel({
+  txn,
+  categories,
+  onClose,
+}: {
+  txn: Transaction;
+  categories: Category[];
+  onClose: () => void;
+}) {
+  const accounts = useAccounts();
+  const update = useUpdateTransaction();
+  const del = useDeleteTransaction();
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    date: txn.date.slice(0, 10),
+    account_id: String(txn.account_id),
+    kind: txn.kind,
+    direction: txn.direction,
+    amount: txn.amount,
+    category_id: txn.category_id ? String(txn.category_id) : "",
+    merchant_clean: txn.merchant_clean ?? "",
+    description: txn.description,
+    notes: txn.notes,
+  });
+
+  function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    try {
+      await update.mutateAsync({
+        id: txn.id,
+        date: form.date,
+        account_id: Number(form.account_id),
+        kind: form.kind,
+        direction: form.kind === "adjustment" ? form.direction : undefined,
+        amount: form.amount,
+        category_id: form.category_id ? Number(form.category_id) : null,
+        merchant_clean: form.merchant_clean || null,
+        description: form.description,
+        notes: form.notes,
+      });
+      onClose();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not save");
+    }
+  }
+
+  async function remove() {
+    if (!window.confirm("Delete this transaction? This can't be undone.")) return;
+    setError(null);
+    try {
+      await del.mutateAsync(txn.id);
+      onClose();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Could not delete");
+    }
+  }
+
+  return (
+    <EditCard as="form" onSubmit={save}>
+      <Stack $gap="md">
+        <Row $gap="sm">
+          <strong>Edit transaction #{txn.id}</strong>
+          <Muted as="span">— balances recompute automatically on save</Muted>
+        </Row>
+        <EditGrid>
+          <Field>
+            <FieldLabel>Date</FieldLabel>
+            <Input
+              type="date"
+              value={form.date}
+              onChange={(e) => set("date", e.target.value)}
+            />
+          </Field>
+          <Field>
+            <FieldLabel>Account</FieldLabel>
+            <Select
+              value={form.account_id}
+              onChange={(e) => set("account_id", e.target.value)}
+            >
+              {(accounts.data ?? []).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} ({a.currency})
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel>Kind</FieldLabel>
+            <Select
+              value={form.kind}
+              onChange={(e) =>
+                set("kind", e.target.value as Transaction["kind"])
+              }
+            >
+              {MANUAL_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {k}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {form.kind === "adjustment" && (
+            <Field>
+              <FieldLabel>Direction</FieldLabel>
+              <Select
+                value={form.direction}
+                onChange={(e) =>
+                  set("direction", e.target.value as Transaction["direction"])
+                }
+              >
+                <option value="out">out (money leaves)</option>
+                <option value="in">in (money arrives)</option>
+              </Select>
+            </Field>
+          )}
+          <Field>
+            <FieldLabel>Amount ({txn.currency})</FieldLabel>
+            <Input
+              inputMode="decimal"
+              value={form.amount}
+              onChange={(e) => set("amount", e.target.value)}
+            />
+          </Field>
+          <Field>
+            <FieldLabel>Category</FieldLabel>
+            <Select
+              value={form.category_id}
+              onChange={(e) => set("category_id", e.target.value)}
+            >
+              <option value="">Uncategorized</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field>
+            <FieldLabel>Merchant</FieldLabel>
+            <Input
+              value={form.merchant_clean}
+              onChange={(e) => set("merchant_clean", e.target.value)}
+            />
+          </Field>
+          <Field>
+            <FieldLabel>Note</FieldLabel>
+            <Input
+              value={form.notes}
+              onChange={(e) => set("notes", e.target.value)}
+            />
+          </Field>
+        </EditGrid>
+        {error && <ErrorText>{error}</ErrorText>}
+        <Row $gap="sm">
+          <Button type="submit" disabled={update.isPending}>
+            Save changes
+          </Button>
+          <GhostButton type="button" onClick={onClose}>
+            Cancel
+          </GhostButton>
+          <GhostButton
+            type="button"
+            onClick={remove}
+            disabled={del.isPending}
+          >
+            <TrashSimple size={14} /> Delete
+          </GhostButton>
+        </Row>
+      </Stack>
+    </EditCard>
+  );
+}
+
 export function Transactions() {
   const [filters, setFilters] = useState<TransactionFilters>(emptyFilters);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [bulkCategory, setBulkCategory] = useState("");
+  const [editing, setEditing] = useState<Transaction | null>(null);
 
   const accounts = useAccounts();
   const categories = useCategories();
@@ -253,8 +454,32 @@ export function Transactions() {
           </Amount>
         ),
       }),
+      column.display({
+        id: "edit",
+        header: "",
+        cell: ({ row }) => {
+          const t = row.original;
+          if (meta.demo_mode) return null;
+          if (t.kind === "transfer") {
+            return (
+              <Muted as="span" title="Edit this on the Transfers screen">
+                <ArrowsLeftRight size={14} /> transfer
+              </Muted>
+            );
+          }
+          return (
+            <GhostButton
+              type="button"
+              aria-label={`Edit ${t.id}`}
+              onClick={() => setEditing(t)}
+            >
+              <PencilSimple size={14} />
+            </GhostButton>
+          );
+        },
+      }),
     ],
-    [accountName, categoriesById, categoryOptions, categorize],
+    [accountName, categoriesById, categoryOptions, categorize, meta.demo_mode],
   );
 
   const rows = page.data?.items ?? [];
@@ -300,6 +525,15 @@ export function Transactions() {
   return (
     <Stack $gap="lg">
       <PageTitle>Transactions</PageTitle>
+
+      {editing && (
+        <EditTransactionPanel
+          key={editing.id}
+          txn={editing}
+          categories={categoryOptions}
+          onClose={() => setEditing(null)}
+        />
+      )}
 
       {rulePrompt && (
         <RulePrompt>

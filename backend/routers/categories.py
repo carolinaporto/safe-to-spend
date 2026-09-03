@@ -67,7 +67,7 @@ def update_category(
     new_parent = data.get("parent_id")
     if new_parent is not None and _would_cycle(db, category_id, new_parent):
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "that parent would create a category loop",
         )
     for field, value in data.items():

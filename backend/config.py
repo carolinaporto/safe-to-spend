@@ -35,20 +35,42 @@ class Settings(BaseSettings):
     # hide screens that don't make sense on a shared public instance.
     demo_mode: bool = Field(default=False, alias="DEMO_MODE")
 
+    # Only trust X-Forwarded-For / X-Real-IP when a known proxy sits in front
+    # (Vercel). Off by default so a direct client can't spoof its IP to dodge
+    # the login throttle. Set TRUST_PROXY_HEADERS=true on the deployed instance.
+    trust_proxy_headers: bool = Field(
+        default=False, alias="TRUST_PROXY_HEADERS"
+    )
+    # Coarse in-memory per-IP rate limit on the API. On by default; the test
+    # suite turns it off so it can fire thousands of requests.
+    rate_limit_enabled: bool = Field(
+        default=True, alias="RATE_LIMIT_ENABLED"
+    )
+
     # JWT
     jwt_algorithm: str = "HS256"
-    jwt_expires_minutes: int = 60 * 24 * 14  # 14 days
+    jwt_expires_minutes: int = 60 * 48  # 48 hours
+    jwt_issuer: str = "safe-to-spend"
+    jwt_audience: str = "safe-to-spend-app"
+    # Bump this (env: TOKEN_VERSION) to invalidate every issued token at once.
+    token_version: str = Field(default="1", alias="TOKEN_VERSION")
 
     # Login throttle
     login_max_failures: int = 5
-    login_lockout_minutes: int = 15
+    login_lockout_minutes: int = 20
+    # Circuit breaker: if failures across ALL IPs exceed this in the window,
+    # lock the login endpoint entirely (mitigates a distributed spray).
+    login_global_max_failures: int = 60
 
     @field_validator("jwt_secret")
     @classmethod
     def _jwt_secret_must_be_strong(cls, v: str) -> str:
-        if len(v.strip()) < 16:
+        # 32 bytes = the RFC 7518 minimum for HS256. Generate with
+        # `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+        if len(v.strip()) < 32:
             raise ValueError(
-                "JWT_SECRET must be set to a value of at least 16 characters"
+                "JWT_SECRET must be at least 32 characters "
+                "(use `secrets.token_urlsafe(32)`)"
             )
         return v
 

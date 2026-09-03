@@ -37,7 +37,7 @@ def _account_or_422(db: Session, account_id: int) -> Account:
     account = db.get(Account, account_id)
     if account is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "unknown account_id"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "unknown account_id"
         )
     return account
 
@@ -45,7 +45,7 @@ def _account_or_422(db: Session, account_id: int) -> Account:
 def _validate_parser(parser: str | None) -> str | None:
     if parser and parser not in PARSER_NAMES:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             f"parser must be one of {PARSER_NAMES}",
         )
     return parser or None
@@ -76,7 +76,7 @@ async def preview(
         )
     except ParseError as exc:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, f"could not parse: {exc}"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"could not parse: {exc}"
         ) from exc
     return PreviewOut(
         parser=result.parser,
@@ -105,7 +105,7 @@ async def commit(
         skip_set = {str(k) for k in json.loads(skip)}
     except (json.JSONDecodeError, AttributeError) as exc:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "overrides/skip must be JSON",
         ) from exc
 
@@ -118,7 +118,7 @@ async def commit(
         )
     except ParseError as exc:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, f"could not parse: {exc}"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"could not parse: {exc}"
         ) from exc
 
     return CommitOut(

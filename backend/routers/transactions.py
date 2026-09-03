@@ -202,7 +202,7 @@ def bulk_categorize(
 ) -> dict:
     if body.category_id is not None and db.get(Category, body.category_id) is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "unknown category_id"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "unknown category_id"
         )
     updated = (
         db.query(Transaction)

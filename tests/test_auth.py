@@ -17,7 +17,7 @@ def test_login_with_wrong_password_is_rejected(client: TestClient) -> None:
 
 
 def test_protected_route_requires_token(client: TestClient) -> None:
-    assert client.get("/api/auth/me").status_code == 403
+    assert client.get("/api/auth/me").status_code == 401
 
 
 def test_protected_route_rejects_garbage_token(client: TestClient) -> None:

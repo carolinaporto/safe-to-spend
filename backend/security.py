@@ -27,11 +27,22 @@ def create_access_token(subject: str = "owner") -> str:
         "sub": subject,
         "iat": now,
         "exp": now + timedelta(minutes=settings.jwt_expires_minutes),
+        "iss": settings.jwt_issuer,
+        "aud": settings.jwt_audience,
+        "ver": settings.token_version,
     }
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
 def decode_access_token(token: str) -> dict:
-    return jwt.decode(
-        token, settings.jwt_secret, algorithms=[settings.jwt_algorithm]
+    payload = jwt.decode(
+        token,
+        settings.jwt_secret,
+        algorithms=[settings.jwt_algorithm],
+        issuer=settings.jwt_issuer,
+        audience=settings.jwt_audience,
+        options={"require": ["exp", "iat", "sub"]},
     )
+    if payload.get("ver") != settings.token_version:
+        raise jwt.InvalidTokenError("token version superseded")
+    return payload

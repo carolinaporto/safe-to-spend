@@ -37,6 +37,29 @@ WISE_CSV = (
     b"TW-2,2026-09-02,-120.00,BRL,Card transaction,PADARIA BRASIL\n"
 )
 
+# Wise "Transactions" activity export (the format the balance statement isn't).
+WISE_ACTIVITY_CSV = (
+    b"ID,Status,Direction,Created on,Finished on,Source fee amount,"
+    b"Source fee currency,Target fee amount,Target fee currency,Source name,"
+    b'"Source amount (after fees)",Source currency,Target name,'
+    b'"Target amount (after fees)",Target currency,Exchange rate,Reference,'
+    b"Batch,Created by,Category,Note\n"
+    # USD out: paid a friend, $1 fee -> 101.00 leaves the USD balance
+    b"TX-1,COMPLETED,OUT,2026-09-01,2026-09-01,1.00,USD,0,,Me,100.00,USD,"
+    b"Jane Roe,100.00,USD,1,ref1,,me,,rent share\n"
+    # BRL -> USD conversion: $181.50 lands in the USD balance
+    b"TX-2,COMPLETED,NEUTRAL,2026-09-03,2026-09-03,0,,0,,Me,1000.00,BRL,"
+    b"Me,181.50,USD,0.1815,ref2,,me,,convert\n"
+    # USD in: someone paid me
+    b"TX-3,COMPLETED,IN,2026-09-04,2026-09-04,0,,0,,Acme Inc,50.00,USD,"
+    b"Me,50.00,USD,1,ref3,,me,,invoice\n"
+    # cancelled -> skipped
+    b"TX-4,CANCELLED,OUT,2026-09-05,,0,,0,,Me,999.00,USD,X,999.00,USD,1,,,,,\n"
+    # pure BRL row -> doesn't touch a USD account
+    b"TX-5,COMPLETED,OUT,2026-09-06,2026-09-06,0,,0,,Me,80.00,BRL,Padaria,"
+    b"80.00,BRL,1,,,,,\n"
+)
+
 
 @pytest.fixture
 def chase(db: Session) -> Account:
@@ -97,6 +120,39 @@ def test_wise_reads_currency_per_row() -> None:
     assert rows[0].currency == "USD"
     assert rows[1].currency == "BRL"
     assert rows[0].external_id == "TW-1"
+
+
+def test_wise_activity_export_is_detected() -> None:
+    parser, _ = parse_csv(WISE_ACTIVITY_CSV, "USD")
+    assert parser == "wise"
+
+
+def test_wise_activity_export_takes_the_account_currency_side() -> None:
+    _, rows = parse_csv(WISE_ACTIVITY_CSV, "USD")
+    by_id = {r.external_id: r for r in rows}
+
+    assert set(by_id) == {"TX-1", "TX-2", "TX-3"}  # cancelled + BRL-only dropped
+
+    assert by_id["TX-1"].direction.value == "out"
+    assert by_id["TX-1"].amount == Decimal("101.00")  # 100 + 1 fee
+    assert by_id["TX-1"].currency == "USD"
+    assert by_id["TX-1"].merchant_raw == "Jane Roe"
+
+    assert by_id["TX-2"].direction.value == "in"
+    assert by_id["TX-2"].amount == Decimal("181.50")  # target side
+
+    assert by_id["TX-3"].direction.value == "in"
+    assert by_id["TX-3"].amount == Decimal("50.00")
+
+
+def test_wise_activity_export_for_a_brl_account() -> None:
+    _, rows = parse_csv(WISE_ACTIVITY_CSV, "BRL")
+    by_id = {r.external_id: r for r in rows}
+    # TX-2 source side (1000 BRL out) and TX-5 (80 BRL out)
+    assert by_id["TX-2"].direction.value == "out"
+    assert by_id["TX-2"].amount == Decimal("1000.00")
+    assert by_id["TX-2"].currency == "BRL"
+    assert by_id["TX-5"].amount == Decimal("80.00")
 
 
 # --------------------------------------------------------------- preview

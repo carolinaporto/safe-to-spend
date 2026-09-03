@@ -38,14 +38,14 @@ _DIRECTION_BY_KIND = {
 def _require_account(db: Session, account_id: int) -> Account:
     account = db.get(Account, account_id)
     if account is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "unknown account_id")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "unknown account_id")
     return account
 
 
 def _check_category(db: Session, category_id: int | None) -> None:
     if category_id is not None and db.get(Category, category_id) is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "unknown category_id"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "unknown category_id"
         )
 
 
@@ -56,7 +56,7 @@ def _resolve_direction(
         return _DIRECTION_BY_KIND[kind]
     if given is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             f"{kind.value} transactions require an explicit direction",
         )
     return given
@@ -78,7 +78,7 @@ def _require_person(db: Session, person_id: int) -> Person:
     person = db.get(Person, person_id)
     if person is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "unknown person_id"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "unknown person_id"
         )
     return person
 
@@ -91,7 +91,7 @@ def _set_shares(
     total = sum((s.share_amount_usd for s in shares), ZERO)
     if total > txn.amount_usd:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "shares exceed the transaction amount",
         )
     txn.shares = [
@@ -110,7 +110,7 @@ def _apply_external_treatment(
         return
     if body.external_treatment is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "external-account purchases need external_treatment (gift|owe)",
         )
     if body.external_treatment == ExternalTreatment.gift:
@@ -120,7 +120,7 @@ def _apply_external_treatment(
     owner_id = body.owed_to_person_id or account.owner_person_id
     if owner_id is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "who do you owe? set owed_to_person_id or the account's owner",
         )
     txn.shares = [
@@ -134,7 +134,7 @@ def _apply_external_treatment(
 def create_transaction(db: Session, body: TransactionCreate) -> Transaction:
     if body.kind not in MANUAL_KINDS:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             f"{body.kind.value} cannot be created here",
         )
     account = _require_account(db, body.account_id)

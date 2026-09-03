@@ -15,11 +15,29 @@ from backend.services.transfers import (
     create_transfer,
     delete_transfer,
     summary,
+    update_transfer,
 )
 
 router = APIRouter(
     prefix="/api/transfers", tags=["transfers"], dependencies=[Depends(require_auth)]
 )
+
+
+def _to_input(body: TransferCreate) -> TransferInput:
+    return TransferInput(
+        date=body.date,
+        from_account_id=body.from_account_id,
+        to_account_id=body.to_account_id,
+        amount_out=body.amount_out,
+        amount_in=body.amount_in,
+        currency_out=body.currency_out,
+        currency_in=body.currency_in,
+        explicit_fee=body.explicit_fee,
+        explicit_fee_currency=body.explicit_fee_currency,
+        market_rate=body.market_rate,
+        provider=body.provider,
+        notes=body.notes,
+    )
 
 
 @router.get("", response_model=list[TransferOut])
@@ -42,23 +60,21 @@ def transfer_summary(db: Session = Depends(get_db)) -> dict:
     dependencies=[Depends(deny_in_demo)],
 )
 def create(body: TransferCreate, db: Session = Depends(get_db)) -> Transfer:
-    return create_transfer(
-        db,
-        TransferInput(
-            date=body.date,
-            from_account_id=body.from_account_id,
-            to_account_id=body.to_account_id,
-            amount_out=body.amount_out,
-            amount_in=body.amount_in,
-            currency_out=body.currency_out,
-            currency_in=body.currency_in,
-            explicit_fee=body.explicit_fee,
-            explicit_fee_currency=body.explicit_fee_currency,
-            market_rate=body.market_rate,
-            provider=body.provider,
-            notes=body.notes,
-        ),
-    )
+    return create_transfer(db, _to_input(body))
+
+
+@router.patch(
+    "/{transfer_id}",
+    response_model=TransferOut,
+    dependencies=[Depends(deny_in_demo)],
+)
+def update(
+    transfer_id: int, body: TransferCreate, db: Session = Depends(get_db)
+) -> Transfer:
+    transfer = db.get(Transfer, transfer_id)
+    if transfer is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "transfer not found")
+    return update_transfer(db, transfer, _to_input(body))
 
 
 @router.delete(

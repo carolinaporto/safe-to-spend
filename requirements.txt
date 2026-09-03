@@ -2,9 +2,9 @@
 # Dev/test tooling lives in requirements-dev.txt.
 
 # Web framework
-fastapi==0.115.6
+fastapi==0.141.1
 uvicorn[standard]==0.34.0
-python-multipart==0.0.20  # CSV file uploads
+python-multipart==0.0.32  # CSV file uploads (>=0.0.31: multipart DoS CVEs)
 
 # Data validation / settings
 pydantic==2.10.4
@@ -16,7 +16,7 @@ alembic==1.14.0
 psycopg[binary]==3.2.13
 
 # Auth
-PyJWT==2.10.1
+PyJWT==2.13.0  # >=2.12.1: several token-validation CVEs
 bcrypt==4.2.1
 
 # HTTP client (daily FX fetch)

@@ -49,7 +49,7 @@ def _account(db: Session, account_id: int, label: str) -> Account:
     account = db.get(Account, account_id)
     if account is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, f"unknown {label}"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"unknown {label}"
         )
     return account
 
@@ -60,7 +60,7 @@ def build_transfer(db: Session, data: TransferInput) -> Transfer:
     :func:`create_transfer`."""
     if data.from_account_id == data.to_account_id:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "from and to accounts must differ",
         )
     src = _account(db, data.from_account_id, "from_account_id")
@@ -72,7 +72,7 @@ def build_transfer(db: Session, data: TransferInput) -> Transfer:
     amount_in = money(data.amount_in)
     if amount_out <= 0 or amount_in <= 0:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "amounts must be positive"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "amounts must be positive"
         )
 
     group = uuid.uuid4()
@@ -156,12 +156,30 @@ def create_transfer(db: Session, data: TransferInput) -> Transfer:
     return transfer
 
 
-def delete_transfer(db: Session, transfer: Transfer) -> None:
+def _remove_transfer(db: Session, transfer: Transfer) -> None:
+    """Drop both ledger legs and the metadata row (no commit)."""
     db.query(Transaction).filter(
         Transaction.transfer_group_id == uuid.UUID(transfer.transfer_group_id)
     ).delete(synchronize_session=False)
     db.delete(transfer)
+    db.flush()
+
+
+def delete_transfer(db: Session, transfer: Transfer) -> None:
+    _remove_transfer(db, transfer)
     db.commit()
+
+
+def update_transfer(
+    db: Session, transfer: Transfer, data: TransferInput
+) -> Transfer:
+    """Rebuild a transfer in place: the legs are recreated from ``data`` so the
+    FX cost is recomputed. Runs in a single transaction."""
+    _remove_transfer(db, transfer)
+    rebuilt = build_transfer(db, data)
+    db.commit()
+    db.refresh(rebuilt)
+    return rebuilt
 
 
 def summary(db: Session) -> dict:

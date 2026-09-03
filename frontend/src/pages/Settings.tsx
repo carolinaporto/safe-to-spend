@@ -1,4 +1,4 @@
-import { Plus, TrashSimple } from "@phosphor-icons/react";
+import { PencilSimple, Plus, TrashSimple } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import styled from "styled-components";
 
@@ -43,6 +43,7 @@ import {
   useSaveRecurringRule,
 } from "../lib/queries";
 import type {
+  Account,
   CategoryNature,
   CommittedCost,
   RecurringFrequency,
@@ -55,6 +56,20 @@ const NATURES: CategoryNature[] = [
   "fee",
   "income",
 ];
+
+// Shown next to the nature picker so it's clear which bucket a new category
+// belongs in.
+const NATURE_HELP: Record<CategoryNature, string> = {
+  essential:
+    "Must-pay, no real choice — rent, groceries, transport, utilities, health. Counts toward your monthly pace.",
+  discretionary:
+    "Optional — you could skip it. Restaurants, coffee, clothes, streaming, trips. Counts toward your pace; first thing to cut when money is tight.",
+  setup:
+    "One-time move-in costs — furniture, deposit, electronics. Tracked, but left OUT of the daily allowance so a big week doesn't wreck the number.",
+  fee: "Bank and currency costs — card fees, IOF, FX spread.",
+  income:
+    "Money coming in — funding, salary/stipend, reimbursements, refunds.",
+};
 
 const Section = styled(Card)`
   display: flex;
@@ -97,6 +112,14 @@ const NatureLabel = styled.span<{ $nature: CategoryNature }>`
   color: ${({ theme, $nature }) => theme.nature[$nature]};
 `;
 
+const NatureHint = styled.p`
+  grid-column: 1 / -1;
+  font-size: ${({ theme }) => theme.fontSize.xs};
+  color: ${({ theme }) => theme.color.textMuted};
+  max-width: 62ch;
+  margin-top: ${({ theme }) => theme.space.xxs};
+`;
+
 const CategoryName = styled.span<{ $archived: boolean }>`
   opacity: ${({ $archived }) => ($archived ? 0.5 : 1)};
   text-decoration: ${({ $archived }) =>
@@ -119,6 +142,18 @@ const ChipButton = styled.button<{ $danger?: boolean }>`
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+const BLANK_ACCOUNT = {
+  name: "",
+  institution: "",
+  kind: "checking",
+  currency: "USD",
+  opening_balance: "0",
+  opening_date: today(),
+  statement_day: "",
+  due_day: "",
+  owner_person_id: "",
+};
+
 function AccountsSection() {
   const accounts = useAccounts();
   const people = usePeople();
@@ -126,29 +161,58 @@ function AccountsSection() {
   const remove = useDeleteAccount();
   const meta = useMeta();
   const [error, setError] = useState<string | null>(null);
-  const [draft, setDraft] = useState({
-    name: "",
-    institution: "",
-    kind: "checking",
-    currency: "USD",
-    opening_balance: "0",
-    opening_date: today(),
-    owner_person_id: "",
-  });
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [draft, setDraft] = useState(BLANK_ACCOUNT);
 
-  async function add(e: React.FormEvent) {
+  function startEdit(a: Account) {
+    setEditingId(a.id);
+    setDraft({
+      name: a.name,
+      institution: a.institution,
+      kind: a.kind,
+      currency: a.currency,
+      opening_balance: a.opening_balance,
+      opening_date: a.opening_date.slice(0, 10),
+      statement_day: a.statement_day ? String(a.statement_day) : "",
+      due_day: a.due_day ? String(a.due_day) : "",
+      owner_person_id: a.owner_person_id ? String(a.owner_person_id) : "",
+    });
+    setError(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setDraft(BLANK_ACCOUNT);
+    setError(null);
+  }
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const body: Record<string, unknown> = {
+      name: draft.name,
+      institution: draft.institution,
+      opening_balance: draft.opening_balance,
+      opening_date: draft.opening_date,
+      statement_day: draft.statement_day ? Number(draft.statement_day) : null,
+      due_day: draft.due_day ? Number(draft.due_day) : null,
+      owner_person_id:
+        draft.kind === "external" && draft.owner_person_id
+          ? Number(draft.owner_person_id)
+          : null,
+    };
     try {
-      const { owner_person_id, ...rest } = draft;
-      await save.mutateAsync({
-        ...rest,
-        owner_person_id:
-          draft.kind === "external" && owner_person_id
-            ? Number(owner_person_id)
-            : null,
-      });
-      setDraft({ ...draft, name: "", institution: "", opening_balance: "0" });
+      if (editingId !== null) {
+        await save.mutateAsync({ id: editingId, ...body });
+        cancelEdit();
+      } else {
+        await save.mutateAsync({
+          ...body,
+          kind: draft.kind,
+          currency: draft.currency,
+        });
+        setDraft(BLANK_ACCOUNT);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save");
     }
@@ -199,14 +263,24 @@ function AccountsSection() {
                   />
                 </Td>
                 <Td>
-                  <GhostButton
-                    type="button"
-                    disabled={meta.demo_mode}
-                    onClick={() => del(a.id)}
-                    aria-label={`Delete ${a.name}`}
-                  >
-                    <TrashSimple size={14} />
-                  </GhostButton>
+                  <Row $gap="xs">
+                    <GhostButton
+                      type="button"
+                      disabled={meta.demo_mode}
+                      onClick={() => startEdit(a)}
+                      aria-label={`Edit ${a.name}`}
+                    >
+                      <PencilSimple size={14} />
+                    </GhostButton>
+                    <GhostButton
+                      type="button"
+                      disabled={meta.demo_mode}
+                      onClick={() => del(a.id)}
+                      aria-label={`Delete ${a.name}`}
+                    >
+                      <TrashSimple size={14} />
+                    </GhostButton>
+                  </Row>
                 </Td>
               </tr>
             ))}
@@ -214,7 +288,10 @@ function AccountsSection() {
         </Table>
       </TableScroll>
 
-      <AddForm onSubmit={add}>
+      {editingId !== null && (
+        <strong>Editing account #{editingId}</strong>
+      )}
+      <AddForm onSubmit={submit}>
         <Field>
           <FieldLabel>Name</FieldLabel>
           <Input
@@ -236,6 +313,7 @@ function AccountsSection() {
           <FieldLabel>Kind</FieldLabel>
           <Select
             value={draft.kind}
+            disabled={editingId !== null}
             onChange={(e) => setDraft({ ...draft, kind: e.target.value })}
           >
             {["checking", "savings", "credit_card", "cash", "external"].map(
@@ -251,6 +329,7 @@ function AccountsSection() {
           <FieldLabel>Currency</FieldLabel>
           <Select
             value={draft.currency}
+            disabled={editingId !== null}
             onChange={(e) => setDraft({ ...draft, currency: e.target.value })}
           >
             <option value="USD">USD</option>
@@ -277,6 +356,32 @@ function AccountsSection() {
             }
           />
         </Field>
+        {draft.kind === "credit_card" && (
+          <>
+            <Field>
+              <FieldLabel>Statement closes (day of month)</FieldLabel>
+              <Input
+                inputMode="numeric"
+                placeholder="e.g. 3"
+                value={draft.statement_day}
+                onChange={(e) =>
+                  setDraft({ ...draft, statement_day: e.target.value })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel>Payment due (day of month)</FieldLabel>
+              <Input
+                inputMode="numeric"
+                placeholder="e.g. 25"
+                value={draft.due_day}
+                onChange={(e) =>
+                  setDraft({ ...draft, due_day: e.target.value })
+                }
+              />
+            </Field>
+          </>
+        )}
         {draft.kind === "external" && (
           <Field>
             <FieldLabel>Owner (whose card)</FieldLabel>
@@ -298,8 +403,14 @@ function AccountsSection() {
           </Field>
         )}
         <Button type="submit" disabled={save.isPending}>
-          <Plus size={16} /> Add account
+          <Plus size={16} />{" "}
+          {editingId !== null ? "Save changes" : "Add account"}
         </Button>
+        {editingId !== null && (
+          <GhostButton type="button" onClick={cancelEdit}>
+            Cancel
+          </GhostButton>
+        )}
       </AddForm>
       {error && <ErrorText>{error}</ErrorText>}
     </Section>
@@ -346,6 +457,7 @@ function CategoriesSection() {
           return (
             <NatureGroup key={nature}>
               <NatureLabel $nature={nature}>{nature}</NatureLabel>
+              <NatureHint>{NATURE_HELP[nature]}</NatureHint>
               <Row $gap="sm">
                 {inNature.map((c) => (
                   <Badge key={c.id}>
@@ -407,6 +519,9 @@ function CategoriesSection() {
         <Button type="submit" disabled={save.isPending}>
           <Plus size={16} /> Add category
         </Button>
+        <NatureHint>
+          {NATURE_HELP[draft.nature as CategoryNature]}
+        </NatureHint>
       </AddForm>
       {error && <ErrorText>{error}</ErrorText>}
     </Section>
