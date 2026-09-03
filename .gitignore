@@ -233,5 +233,8 @@ frontend/.vite/
 # Vercel
 .vercel/
 
+# Local database dumps
+/backups/
+
 # OS
 .DS_Store

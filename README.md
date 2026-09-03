@@ -94,10 +94,17 @@ Then add your accounts and academic-year plan in **Settings**. Don't run
 ## Testing
 
 ```bash
+createdb -h localhost -U sts safe_to_spend_test   # once; or via psql
 pytest              # needs the Docker DB running
 ruff check backend tests alembic
 alembic check       # migrations match the models
 ```
+
+The test fixtures `TRUNCATE` every table between tests, so they run against a
+**separate** database whose name ends in `_test` (`safe_to_spend_test` by
+default; `conftest.py` derives it from `DATABASE_URL` and refuses to run
+against anything else). Your real data in `safe_to_spend` is never touched by
+`pytest`. Take a dump before anything risky: `scripts/db_backup.sh`.
 
 Covers the parts where a bug means a wrong number on screen: currency conversion and rounding, transfer legs balancing, FX cost computation, shared-expense math, balance reconstruction, runway and budget math, import deduplication, and the exclusion of transfers and reimbursements from category spending. CI runs all of the above plus the frontend build on every push.
 

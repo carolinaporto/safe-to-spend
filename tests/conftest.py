@@ -4,12 +4,22 @@ import bcrypt
 
 TEST_PASSWORD = "correct-horse-battery-staple"
 
+# The test fixtures TRUNCATE every table between tests. That must NEVER touch a
+# real database. We force the DB name to end in `_test`: the dev DB is
+# `safe_to_spend`, the test DB is `safe_to_spend_test` (create it once with
+# `createdb -U sts safe_to_spend_test` or the equivalent). Set TEST_DATABASE_URL
+# to override entirely.
+_DEFAULT_TEST_DB = "postgresql+psycopg://sts:sts@localhost:5432/safe_to_spend_test"
+_url = os.environ.get("TEST_DATABASE_URL") or os.environ.get("DATABASE_URL")
+if not _url:
+    _url = _DEFAULT_TEST_DB
+elif not _url.rsplit("/", 1)[-1].split("?", 1)[0].endswith("_test"):
+    base, name = _url.rsplit("/", 1)
+    _url = f"{base}/{name.split('?', 1)[0]}_test"
+os.environ["DATABASE_URL"] = _url
+
 # Environment must be populated before anything under backend/ is imported,
 # because backend.config.Settings requires these at construction time.
-os.environ.setdefault(
-    "DATABASE_URL",
-    "postgresql+psycopg://sts:sts@localhost:5432/safe_to_spend",
-)
 os.environ["APP_PASSWORD_HASH"] = bcrypt.hashpw(
     TEST_PASSWORD.encode("utf-8"), bcrypt.gensalt()
 ).decode("utf-8")
@@ -33,12 +43,23 @@ def _migrate() -> None:
     command.upgrade(Config("alembic.ini"), "head")
 
 
+def _assert_test_database() -> None:
+    """Refuse to run the destructive fixtures against a non-test database."""
+    name = str(engine.url.database or "")
+    if not name.endswith("_test"):
+        raise RuntimeError(
+            f"refusing to TRUNCATE database {name!r}: the test DB name must "
+            "end in '_test' (see conftest.py)"
+        )
+
+
 @pytest.fixture(autouse=True)
 def _clean_tables() -> None:
     """Every test starts from empty tables. Anything committed by a test
     (e.g. the seed script) is cleared before the next one runs."""
     from sqlalchemy import text
 
+    _assert_test_database()
     with engine.begin() as conn:
         conn.execute(
             text(
