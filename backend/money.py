@@ -4,7 +4,7 @@ Spec invariants: money is 2 dp, rates are 8 dp, rounding is ROUND_HALF_UP,
 and no ``float`` ever touches a monetary value.
 """
 
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
 CENTS = Decimal("0.01")
 RATE_QUANT = Decimal("0.00000001")
@@ -13,12 +13,19 @@ ONE = Decimal("1")
 
 
 def to_decimal(value: object) -> Decimal:
-    """Build a Decimal without ever going through float."""
+    """Build a Decimal without ever going through float.
+
+    A blank / non-numeric string raises ``ValueError`` (a clean 422 in the
+    API) rather than the bare ``InvalidOperation`` that would surface as a 500.
+    """
     if isinstance(value, Decimal):
         return value
     if isinstance(value, float):
         raise TypeError("refusing to build a monetary Decimal from a float")
-    return Decimal(str(value))
+    try:
+        return Decimal(str(value).strip())
+    except InvalidOperation as exc:
+        raise ValueError(f"not a valid amount: {value!r}") from exc
 
 
 def money(value: object) -> Decimal:

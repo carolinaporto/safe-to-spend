@@ -40,5 +40,34 @@ def test_put_updates_fields_and_committed_costs(
     assert again["committed_costs"][0]["label"] == "Tuition"
 
 
+def test_blank_reserve_from_the_form_is_treated_as_zero(
+    api_client: TestClient, auth_headers: dict
+) -> None:
+    # The Settings form sends "" when the reserve field is left empty.
+    resp = api_client.put(
+        "/api/plan-config",
+        headers=auth_headers,
+        json={
+            "academic_year_start": "2026-09-01",
+            "academic_year_end": "2027-05-31",
+            "emergency_reserve_usd": "",
+            "committed_costs": [],
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["emergency_reserve_usd"] == "0.00"
+
+
+def test_a_non_numeric_amount_is_a_clean_422_not_a_500(
+    api_client: TestClient, auth_headers: dict
+) -> None:
+    resp = api_client.put(
+        "/api/plan-config",
+        headers=auth_headers,
+        json={"emergency_reserve_usd": "not a number"},
+    )
+    assert resp.status_code == 422
+
+
 def test_requires_auth(api_client: TestClient) -> None:
     assert api_client.get("/api/plan-config").status_code == 401

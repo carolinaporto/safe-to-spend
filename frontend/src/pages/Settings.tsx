@@ -192,7 +192,7 @@ function AccountsSection() {
     const body: Record<string, unknown> = {
       name: draft.name,
       institution: draft.institution,
-      opening_balance: draft.opening_balance,
+      opening_balance: draft.opening_balance.trim() || "0",
       opening_date: draft.opening_date,
       statement_day: draft.statement_day ? Number(draft.statement_day) : null,
       due_day: draft.due_day ? Number(draft.due_day) : null,
@@ -553,10 +553,18 @@ function PlanSection() {
   async function persist(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!form.academic_year_start || !form.academic_year_end) {
+      setError("Set both the start and end dates.");
+      return;
+    }
     try {
       await save.mutateAsync({
-        ...form,
-        committed_costs: costs.filter((c) => c.label && c.amount_usd),
+        academic_year_start: form.academic_year_start,
+        academic_year_end: form.academic_year_end,
+        emergency_reserve_usd: form.emergency_reserve_usd.trim() || "0",
+        committed_costs: costs.filter(
+          (c) => c.label.trim() && c.amount_usd.trim() && c.due_date,
+        ),
       });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save");
