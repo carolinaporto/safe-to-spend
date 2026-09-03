@@ -24,7 +24,7 @@ def _account(db: Session) -> None:
 
 
 def test_backup_download_requires_auth(api_client: TestClient) -> None:
-    assert api_client.get("/api/backup").status_code == 403
+    assert api_client.get("/api/backup").status_code == 401
 
 
 def test_backup_download_returns_json_snapshot(

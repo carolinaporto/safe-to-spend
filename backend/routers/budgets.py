@@ -23,7 +23,7 @@ def _month(month: str) -> dt.date:
         return parse_month(month)
     except (ValueError, IndexError):
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "month must be YYYY-MM or YYYY-MM-DD",
         ) from None
 

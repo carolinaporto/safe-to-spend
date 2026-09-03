@@ -49,7 +49,7 @@ def _account(db: Session, account_id: int, label: str) -> Account:
     account = db.get(Account, account_id)
     if account is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, f"unknown {label}"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"unknown {label}"
         )
     return account
 
@@ -60,7 +60,7 @@ def build_transfer(db: Session, data: TransferInput) -> Transfer:
     :func:`create_transfer`."""
     if data.from_account_id == data.to_account_id:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "from and to accounts must differ",
         )
     src = _account(db, data.from_account_id, "from_account_id")
@@ -72,7 +72,7 @@ def build_transfer(db: Session, data: TransferInput) -> Transfer:
     amount_in = money(data.amount_in)
     if amount_out <= 0 or amount_in <= 0:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "amounts must be positive"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "amounts must be positive"
         )
 
     group = uuid.uuid4()

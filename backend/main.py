@@ -1,8 +1,7 @@
-from collections.abc import Awaitable, Callable
-
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend import http_security
 from backend.config import get_settings
 from backend.logging_config import configure_logging
 from backend.routers import (
@@ -28,9 +27,18 @@ from backend.routers import (
 configure_logging()
 settings = get_settings()
 
-app = FastAPI(title="safe-to-spend", version="0.1.0")
+app = FastAPI(
+    title="safe-to-spend",
+    version="0.1.0",
+    # Don't publish interactive docs or the schema — it just maps the attack
+    # surface for a single-user private app.
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
-# CORS is limited to the deployed origin plus localhost (see config.py).
+# Order matters: the hardening middleware is added last, so it runs first
+# (outermost) and its headers land on every response, including CORS pre-flight.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -38,24 +46,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
-
-_SECURITY_HEADERS = {
-    "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
-    "Referrer-Policy": "no-referrer",
-}
-
-
-@app.middleware("http")
-async def security_headers(
-    request: Request,
-    call_next: Callable[[Request], Awaitable[Response]],
-) -> Response:
-    response = await call_next(request)
-    for key, value in _SECURITY_HEADERS.items():
-        response.headers.setdefault(key, value)
-    return response
+http_security.install(app)
 
 
 app.include_router(health.router)

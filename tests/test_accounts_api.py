@@ -24,7 +24,7 @@ NEW_ACCOUNT = {
 
 
 def test_list_requires_auth(api_client: TestClient) -> None:
-    assert api_client.get("/api/accounts").status_code == 403
+    assert api_client.get("/api/accounts").status_code == 401
 
 
 def test_create_and_list_account(

@@ -116,7 +116,7 @@ def settle_person(
     account = db.get(Account, account_id)
     if account is None or account.kind == AccountKind.external:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
             "settle into one of your own accounts",
         )
 
@@ -134,7 +134,7 @@ def settle_person(
     net = money(owed - i_owe)
     if net == 0:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "nothing to settle"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "nothing to settle"
         )
 
     today = dt.date.today()

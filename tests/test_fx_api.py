@@ -9,7 +9,7 @@ from backend.services import fx_provider
 
 
 def test_fx_rate_endpoint_requires_auth(api_client: TestClient) -> None:
-    assert api_client.get("/api/fx/rate?base=BRL").status_code == 403
+    assert api_client.get("/api/fx/rate?base=BRL").status_code == 401
 
 
 def test_fx_rate_endpoint_returns_stored_rate_as_string(

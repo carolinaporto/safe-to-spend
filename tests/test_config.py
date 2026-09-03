@@ -22,12 +22,15 @@ def test_missing_jwt_secret_fails_loudly(monkeypatch) -> None:
 def test_short_jwt_secret_is_rejected(monkeypatch) -> None:
     with pytest.raises(ValidationError):
         _make(monkeypatch, JWT_SECRET="tooshort")
+    # 31 chars — still one short of the RFC 7518 HS256 minimum.
+    with pytest.raises(ValidationError):
+        _make(monkeypatch, JWT_SECRET="x" * 31)
 
 
 def test_cors_list_is_deployed_origin_plus_localhost_only(monkeypatch) -> None:
     settings = _make(
         monkeypatch,
-        JWT_SECRET="a-sufficiently-long-secret",
+        JWT_SECRET="a-sufficiently-long-secret-of-32+-chars",
         CORS_ORIGINS="https://app.example.com",
     )
     origins = settings.cors_origin_list

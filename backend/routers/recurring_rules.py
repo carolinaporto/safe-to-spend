@@ -26,11 +26,11 @@ rules_router = APIRouter(
 def _validate_refs(db: Session, account_id: int | None, category_id: int | None):
     if account_id is not None and db.get(Account, account_id) is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "unknown account_id"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "unknown account_id"
         )
     if category_id is not None and db.get(Category, category_id) is None:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, "unknown category_id"
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "unknown category_id"
         )
 
 

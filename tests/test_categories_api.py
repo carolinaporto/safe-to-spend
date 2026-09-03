@@ -17,7 +17,7 @@ from backend.models.transaction import Transaction
 
 
 def test_list_requires_auth(api_client: TestClient) -> None:
-    assert api_client.get("/api/categories").status_code == 403
+    assert api_client.get("/api/categories").status_code == 401
 
 
 def test_create_category_and_subcategory(

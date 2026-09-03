@@ -26,6 +26,11 @@ os.environ["APP_PASSWORD_HASH"] = bcrypt.hashpw(
 os.environ["JWT_SECRET"] = "test-secret-at-least-16-chars-long"
 os.environ["CRON_SECRET"] = "test-cron-secret"
 os.environ["CORS_ORIGINS"] = "https://app.example.com"
+# The suite simulates the deployed environment (behind Vercel's proxy) so the
+# per-IP login throttle can be exercised with X-Forwarded-For.
+os.environ["TRUST_PROXY_HEADERS"] = "true"
+# The coarse in-memory rate limiter would trip on the volume of test requests.
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 
 import pytest  # noqa: E402
 from alembic import command  # noqa: E402

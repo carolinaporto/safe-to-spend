@@ -639,5 +639,8 @@ def seed() -> dict[str, int]:
 
 
 if __name__ == "__main__":
+    from backend.reset import guard_destructive
+
+    guard_destructive("replace the database with fake seed data")
     for name, count in seed().items():
         print(f"{name:>13}: {count}")
