@@ -110,6 +110,14 @@ Covers the parts where a bug means a wrong number on screen: currency conversion
 
 ---
 
+## Deploy
+
+Vercel (static frontend + FastAPI Python Function) with a Neon Postgres. Full
+runbook in [`docs/DEPLOY.md`](docs/DEPLOY.md); the security model and the
+env-var checklist are in [`SECURITY.md`](SECURITY.md).
+
+---
+
 ## Roadmap
 
 - [x] Multi-currency ledger, accounts, categories, daily FX rates
