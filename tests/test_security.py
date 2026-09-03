@@ -34,6 +34,25 @@ def test_cors_rejects_unknown_origin(client: TestClient) -> None:
     assert "access-control-allow-origin" not in resp.headers
 
 
+def test_cors_preflight_allows_every_method_the_app_uses(
+    client: TestClient,
+) -> None:
+    # PUT is used by /api/plan-config and /api/budgets; a missing method in
+    # allow_methods makes the browser preflight fail with 400.
+    for method in ("GET", "POST", "PUT", "PATCH", "DELETE"):
+        resp = client.options(
+            "/api/plan-config",
+            headers={
+                "Origin": "http://localhost:5173",
+                "Access-Control-Request-Method": method,
+                "Access-Control-Request-Headers": "authorization,content-type",
+            },
+        )
+        assert resp.status_code == 200, method
+        allowed = resp.headers.get("access-control-allow-methods", "")
+        assert method in allowed, f"{method} not in {allowed!r}"
+
+
 def test_login_locks_out_after_repeated_failures(client: TestClient) -> None:
     ip = {"X-Forwarded-For": "203.0.113.7"}
     for _ in range(settings.login_max_failures):
