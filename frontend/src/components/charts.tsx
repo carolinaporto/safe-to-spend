@@ -29,11 +29,17 @@ import type {
 const NATURE_ORDER = ["essential", "discretionary", "setup", "fee"] as const;
 
 // Recharts is styled through props, not CSS — these read from the theme.
-const tooltipStyle = (theme: Theme) => ({
-  background: theme.color.surfaceRaised,
-  border: `1px solid ${theme.color.border}`,
-  borderRadius: 8,
-  color: theme.color.text,
+// contentStyle is the wrapper; itemStyle / labelStyle carry the text colour
+// (Recharts defaults them to black otherwise).
+const tooltip = (theme: Theme) => ({
+  contentStyle: {
+    background: theme.color.surfaceRaised,
+    border: `1px solid ${theme.color.border}`,
+    borderRadius: 8,
+    color: theme.color.text,
+  },
+  itemStyle: { color: theme.color.text },
+  labelStyle: { color: theme.color.textMuted },
 });
 
 const usd = (v: number | string) => formatMoney(String(v), "USD");
@@ -42,11 +48,14 @@ const legendLabel = (theme: Theme) => (value: string) => (
   <span style={{ color: theme.color.textMuted }}>{value}</span>
 );
 
-// Deterministic colour for a category donut slice: category colour if set,
-// else a shade derived from its nature.
-function sliceColor(row: CategorySpend, natureColors: Record<string, string>) {
-  if (row.color) return row.color;
-  return natureColors[row.nature ?? "essential"] ?? natureColors.essential;
+// A stable-ish colour for a category slice: the category's own colour if set,
+// otherwise its position in the theme palette so adjacent slices differ.
+function sliceColor(
+  row: CategorySpend,
+  index: number,
+  palette: readonly string[],
+): string {
+  return row.color || palette[index % palette.length];
 }
 
 export function ProjectionChart({ data }: { data: Projection }) {
@@ -91,7 +100,7 @@ export function ProjectionChart({ data }: { data: Projection }) {
           tickFormatter={(v) => formatMoney(String(v), "USD")}
         />
         <Tooltip
-          contentStyle={tooltipStyle(theme)}
+          {...tooltip(theme)}
           formatter={usd}
           labelFormatter={(l) => shortMonth(String(l))}
         />
@@ -135,10 +144,10 @@ export function CategoryDonut({ rows }: { rows: CategorySpend[] }) {
   const theme = useTheme();
   const data = rows
     .filter((r) => toPlotNumber(r.amount_usd) > 0)
-    .map((r) => ({
+    .map((r, i) => ({
       name: r.name,
       value: toPlotNumber(r.amount_usd),
-      fill: sliceColor(r, theme.nature),
+      fill: sliceColor(r, i, theme.chartPalette),
     }));
 
   if (data.length === 0) return null;
@@ -159,7 +168,7 @@ export function CategoryDonut({ rows }: { rows: CategorySpend[] }) {
             <Cell key={d.name} fill={d.fill} />
           ))}
         </Pie>
-        <Tooltip contentStyle={tooltipStyle(theme)} formatter={usd} />
+        <Tooltip {...tooltip(theme)} formatter={usd} />
         <Legend formatter={legendLabel(theme)} />
       </PieChart>
     </ResponsiveContainer>
@@ -199,7 +208,7 @@ export function TransferCostChart({ transfers }: { transfers: Transfer[] }) {
           width={64}
           tickFormatter={(v) => formatMoney(String(v), "USD")}
         />
-        <Tooltip contentStyle={tooltipStyle(theme)} formatter={usd} />
+        <Tooltip {...tooltip(theme)} formatter={usd} />
         <Area
           type="monotone"
           dataKey="cumulative"
@@ -241,8 +250,8 @@ export function ProviderRateChart({
           domain={["auto", "auto"]}
         />
         <Tooltip
+          {...tooltip(theme)}
           cursor={{ fill: theme.color.surfaceRaised }}
-          contentStyle={tooltipStyle(theme)}
         />
         <Bar dataKey="rate" name="Avg effective rate" fill={theme.color.primary} />
       </BarChart>
@@ -277,8 +286,8 @@ export function CashflowChart({ months }: { months: CashflowMonth[] }) {
           tickFormatter={(v) => formatMoney(String(v), "USD")}
         />
         <Tooltip
+          {...tooltip(theme)}
           cursor={{ fill: theme.color.surfaceRaised }}
-          contentStyle={tooltipStyle(theme)}
           formatter={usd}
           labelFormatter={(l) => shortMonth(String(l))}
         />

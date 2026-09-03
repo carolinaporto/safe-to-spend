@@ -41,6 +41,25 @@ export const theme = {
     income: "#3fb950",
   },
 
+  // Distinct palette for per-category charts (donut/bars) so slices are
+  // told apart regardless of nature. Category-specific `color` overrides it.
+  chartPalette: [
+    "#4f8cff",
+    "#f0883e",
+    "#3fb950",
+    "#a371f7",
+    "#ec6cb9",
+    "#39c5cf",
+    "#d29922",
+    "#f85149",
+    "#2dd4bf",
+    "#fb7185",
+    "#a3e635",
+    "#c084fc",
+    "#60a5fa",
+    "#fbbf24",
+  ],
+
   // 4px base spacing scale
   space: {
     none: "0",
