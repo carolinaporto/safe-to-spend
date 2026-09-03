@@ -156,12 +156,30 @@ def create_transfer(db: Session, data: TransferInput) -> Transfer:
     return transfer
 
 
-def delete_transfer(db: Session, transfer: Transfer) -> None:
+def _remove_transfer(db: Session, transfer: Transfer) -> None:
+    """Drop both ledger legs and the metadata row (no commit)."""
     db.query(Transaction).filter(
         Transaction.transfer_group_id == uuid.UUID(transfer.transfer_group_id)
     ).delete(synchronize_session=False)
     db.delete(transfer)
+    db.flush()
+
+
+def delete_transfer(db: Session, transfer: Transfer) -> None:
+    _remove_transfer(db, transfer)
     db.commit()
+
+
+def update_transfer(
+    db: Session, transfer: Transfer, data: TransferInput
+) -> Transfer:
+    """Rebuild a transfer in place: the legs are recreated from ``data`` so the
+    FX cost is recomputed. Runs in a single transaction."""
+    _remove_transfer(db, transfer)
+    rebuilt = build_transfer(db, data)
+    db.commit()
+    db.refresh(rebuilt)
+    return rebuilt
 
 
 def summary(db: Session) -> dict:

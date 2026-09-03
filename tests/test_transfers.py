@@ -158,6 +158,55 @@ def test_summary_aggregates_cost_and_providers(
     assert wise["count"] == 2
 
 
+def test_update_rebuilds_legs_and_recomputes_cost(
+    api_client: TestClient, auth_headers: dict, accounts, brl_rate, db: Session
+) -> None:
+    tid = _create(api_client, auth_headers, accounts).json()["id"]
+
+    resp = api_client.patch(
+        f"/api/transfers/{tid}",
+        json={
+            "date": TODAY.isoformat(),
+            "from_account_id": accounts["brl"].id,
+            "to_account_id": accounts["usd"].id,
+            "amount_out": "5000.00",
+            "amount_in": "900.00",  # was 890
+            "provider": "Wise",
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    # 5000 * 0.185 = 925 theoretical; got 900 -> 25.00
+    assert body["fx_cost_usd"] == "25.00"
+
+    legs = (
+        db.query(Transaction)
+        .filter(Transaction.kind == TransactionKind.transfer)
+        .all()
+    )
+    assert len(legs) == 2
+    native = native_balances(db, TODAY)
+    assert native[accounts["usd"].id] == Decimal("2900.00")  # 2000 + 900
+
+
+def test_update_blocked_in_demo(
+    api_client: TestClient, auth_headers: dict, accounts, brl_rate, demo_mode
+) -> None:
+    resp = api_client.patch(
+        "/api/transfers/1",
+        json={
+            "date": TODAY.isoformat(),
+            "from_account_id": accounts["brl"].id,
+            "to_account_id": accounts["usd"].id,
+            "amount_out": "1.00",
+            "amount_in": "1.00",
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 403
+
+
 def test_delete_removes_both_legs(
     api_client: TestClient, auth_headers: dict, accounts, brl_rate, db: Session
 ) -> None:

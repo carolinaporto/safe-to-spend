@@ -177,6 +177,15 @@ export function useUpdateTransaction() {
   });
 }
 
+export function useDeleteTransaction() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      api<void>(`/api/transactions/${id}`, { method: "DELETE" }),
+    onSuccess: () => invalidateLedger(qc),
+  });
+}
+
 export function useBulkCategorize() {
   const qc = useQueryClient();
   return useMutation({
@@ -493,6 +502,18 @@ export function useCreateTransfer() {
     mutationFn: (body: Record<string, unknown>) =>
       api<Transfer>("/api/transfers", {
         method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: () => invalidateLedger(qc),
+  });
+}
+
+export function useUpdateTransfer() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: number } & Record<string, unknown>) =>
+      api<Transfer>(`/api/transfers/${id}`, {
+        method: "PATCH",
         body: JSON.stringify(body),
       }),
     onSuccess: () => invalidateLedger(qc),
