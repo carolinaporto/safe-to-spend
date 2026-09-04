@@ -24,20 +24,26 @@ Do these in order.
 
 Your real accounts/transactions are only in the **local** Postgres.
 
-**Start fresh** (recommended if it's still small): skip this step. After the
-first deploy, open the app and add your accounts + plan, then import statements.
+**Start fresh:** skip this step. After the first deploy, add your accounts +
+plan in Settings, then import statements.
 
-**Bring it over:**
+**Bring it over** — schema from the migrations (step 1), then data only, so
+nothing depends on Neon accepting a raw `pg_dump` of the whole DB:
 
 ```
-scripts/db_backup.sh safe_to_spend            # dump local
-gunzip -c backups/safe_to_spend_<newest>.sql.gz \
-  | psql '<neon pooled url>'                   # load into Neon
+# after step 1's `alembic upgrade head` has run against Neon:
+docker exec -i safe-to-spend-db \
+  pg_dump -U sts -d safe_to_spend --data-only --no-owner \
+          --exclude-table=alembic_version \
+| docker exec -i safe-to-spend-db psql '<neon pooled url>'
 ```
 
-(If you loaded data, you don't also run `alembic upgrade head` — the dump
-already contains the schema. Run `alembic current` against Neon to confirm it's
-at head.)
+Then check it landed:
+
+```
+docker exec -i safe-to-spend-db psql '<neon pooled url>' \
+  -c "select count(*) from transactions; select count(*) from accounts;"
+```
 
 ## 3. Secrets
 
