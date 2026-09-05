@@ -3,11 +3,6 @@
   "installCommand": "cd frontend && npm ci",
   "buildCommand": "cd frontend && npm run build",
   "outputDirectory": "frontend/dist",
-  "functions": {
-    "api/index.py": {
-      "runtime": "@vercel/python@4.3.0"
-    }
-  },
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
