@@ -7,8 +7,8 @@ uvicorn[standard]==0.34.0
 python-multipart==0.0.32  # CSV file uploads (>=0.0.31: multipart DoS CVEs)
 
 # Data validation / settings
-pydantic==2.10.4
-pydantic-settings==2.7.1
+pydantic==2.13.5
+pydantic-settings==2.15.0
 
 # Database
 SQLAlchemy==2.0.36
