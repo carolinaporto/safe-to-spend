@@ -8,9 +8,9 @@ Do these in order.
 
 ## 1. Neon database
 
-1. Create a Neon project (region close to you). One database, e.g. `safe_to_spend`.
+1. Create a Neon project (region close to you). The default `neondb` database is fine.
 2. Copy the **pooled** connection string (the host contains `-pooler`). It looks like:
-   `postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/safe_to_spend?sslmode=require`
+   `postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/neondb?sslmode=require`
 3. Run the migrations against it from your machine — needs a throwaway JWT secret
    just so config validation passes:
 
@@ -19,6 +19,10 @@ Do these in order.
    JWT_SECRET='0000000000000000000000000000000000' \
    .venv/bin/alembic upgrade head
    ```
+
+Neon's pooler doesn't carry the role's default `search_path`; the app sets it
+to `public` on every connection (`backend/database.py`), so the pooled URL
+works as-is — no `ALTER ROLE` needed.
 
 ## 2. Your data — keep it or start fresh?
 
