@@ -36,7 +36,10 @@ jobs:
       - name: Lint
         run: ruff check backend tests alembic
       - name: Dependency audit
-        run: pip-audit --strict --desc
+        # No --strict: the project installs itself editable (-e) and pip-audit
+        # can't resolve it on PyPI, which --strict counts as a failure. Real
+        # vulnerabilities still fail this step.
+        run: pip-audit --desc
       - name: Migrations
         run: alembic upgrade head
       - name: Migrations match models
