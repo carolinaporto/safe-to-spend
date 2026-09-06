@@ -20,6 +20,7 @@ import {
   Td,
   Th,
 } from "../components/ui";
+import { ReviewQueue } from "../components/ReviewQueue";
 import { ApiError } from "../lib/api";
 import { formatDate, formatMoney } from "../lib/format";
 import {
@@ -324,6 +325,8 @@ export function Import() {
           </Row>
         </>
       )}
+
+      <ReviewQueue />
     </Stack>
   );
 }

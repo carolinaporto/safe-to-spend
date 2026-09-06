@@ -2,16 +2,6 @@ import { CheckCircle } from "@phosphor-icons/react";
 import { useMemo } from "react";
 import styled from "styled-components";
 
-import {
-  Badge,
-  Card,
-  GhostButton,
-  Muted,
-  PageTitle,
-  Row,
-  Select,
-  Stack,
-} from "../components/ui";
 import { formatDate, formatMoney } from "../lib/format";
 import {
   useAccounts,
@@ -19,6 +9,7 @@ import {
   useReviewQueue,
   useUpdateTransaction,
 } from "../lib/queries";
+import { Badge, Card, GhostButton, Muted, Row, Select, Stack } from "./ui";
 
 const Item = styled(Card)`
   display: grid;
@@ -43,10 +34,6 @@ const Amount = styled.span<{ $in: boolean }>`
   color: ${({ theme, $in }) => ($in ? theme.color.inflow : theme.color.text)};
 `;
 
-const Actions = styled(Row)`
-  gap: ${({ theme }) => theme.space.sm};
-`;
-
 const Empty = styled(Card)`
   display: flex;
   align-items: center;
@@ -54,7 +41,11 @@ const Empty = styled(Card)`
   color: ${({ theme }) => theme.color.success};
 `;
 
-export function Review() {
+const Heading = styled.h2`
+  font-size: ${({ theme }) => theme.fontSize.lg};
+`;
+
+export function ReviewQueue() {
   const queue = useReviewQueue();
   const accounts = useAccounts();
   const categories = useCategories();
@@ -73,22 +64,22 @@ export function Review() {
     update.mutate({ id, category_id: categoryId, needs_review: false });
   }
 
-  if (queue.isLoading) return <Muted>Loading…</Muted>;
+  if (queue.isLoading) return null;
 
   return (
-    <Stack $gap="lg">
-      <PageTitle>Review</PageTitle>
-
+    <Stack $gap="md">
+      <Heading>Needs review</Heading>
       {items.length === 0 ? (
         <Empty>
           <CheckCircle size={18} weight="fill" />
-          Nothing to review — every transaction is categorised.
+          Nothing to review — every transaction has a category and a rate.
         </Empty>
       ) : (
         <>
           <Muted>
             {queue.data?.total} transaction
-            {queue.data?.total === 1 ? "" : "s"} need a category or a rate check.
+            {queue.data?.total === 1 ? "" : "s"} imported without a category, or
+            missing an exchange rate.
           </Muted>
           {items.map((t) => (
             <Item key={t.id}>
@@ -110,7 +101,7 @@ export function Review() {
                   )}
                 </Muted>
               </Meta>
-              <Actions>
+              <Row $gap="sm">
                 <Select
                   aria-label={`Category for ${t.merchant_raw ?? t.id}`}
                   defaultValue={t.category_id ?? ""}
@@ -131,7 +122,7 @@ export function Review() {
                 >
                   Looks fine
                 </GhostButton>
-              </Actions>
+              </Row>
             </Item>
           ))}
         </>

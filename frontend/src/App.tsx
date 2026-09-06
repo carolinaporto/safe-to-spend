@@ -8,7 +8,6 @@ import { Import } from "./pages/Import";
 import { Income } from "./pages/Income";
 import { Login } from "./pages/Login";
 import { People } from "./pages/People";
-import { Review } from "./pages/Review";
 import { Settings } from "./pages/Settings";
 import { Transactions } from "./pages/Transactions";
 import { Transfers } from "./pages/Transfers";
@@ -30,7 +29,6 @@ export function App() {
         <Route index element={<Home />} />
         <Route path="transactions" element={<Transactions />} />
         <Route path="import" element={<Import />} />
-        <Route path="review" element={<Review />} />
         <Route path="transfers" element={<Transfers />} />
         <Route path="budget" element={<Budget />} />
         <Route path="people" element={<People />} />
