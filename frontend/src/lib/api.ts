@@ -34,7 +34,13 @@ export async function api<T>(
   const token = getToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+  } catch {
+    // Network error / server unreachable / CORS — no HTTP status to report.
+    throw new ApiError(0, "Could not reach the server");
+  }
 
   if (res.status === 401 && getToken()) {
     setToken(null);

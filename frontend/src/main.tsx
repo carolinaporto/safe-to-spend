@@ -7,6 +7,7 @@ import { ThemeProvider } from "styled-components";
 
 import { App } from "./App";
 import { AuthProvider } from "./auth/AuthContext";
+import { ToastProvider } from "./components/Toast";
 import { queryClient } from "./lib/queryClient";
 import { GlobalStyle } from "./styles/GlobalStyle";
 import { theme } from "./theme";
@@ -22,7 +23,9 @@ createRoot(document.getElementById("root")!).render(
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
             <AuthProvider>
-              <App />
+              <ToastProvider>
+                <App />
+              </ToastProvider>
             </AuthProvider>
           </BrowserRouter>
         </QueryClientProvider>

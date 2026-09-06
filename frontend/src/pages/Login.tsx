@@ -3,6 +3,7 @@ import styled from "styled-components";
 
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, ErrorText, FieldLabel, Input } from "../components/ui";
+import { useToast } from "../components/Toast";
 import { ApiError } from "../lib/api";
 
 const Screen = styled.div`
@@ -36,6 +37,7 @@ const Form = styled.form`
 
 export function Login() {
   const { login } = useAuth();
+  const toast = useToast();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -46,10 +48,18 @@ export function Login() {
     setError(null);
     try {
       await login(password);
+      toast.success("Signed in");
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Could not reach the server",
-      );
+      const msg =
+        err instanceof ApiError && err.status === 401
+          ? "Wrong password"
+          : err instanceof ApiError && err.status === 0
+            ? "Could not reach the server"
+            : err instanceof ApiError
+              ? err.message
+              : "Could not reach the server";
+      setError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
