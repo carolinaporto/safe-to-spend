@@ -32,11 +32,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements-dev.txt
+      - run: pip install -e ".[dev]"
       - name: Lint
         run: ruff check backend tests alembic
       - name: Dependency audit
-        run: pip-audit -r requirements.txt --strict --desc
+        run: pip-audit --strict --desc
       - name: Migrations
         run: alembic upgrade head
       - name: Migrations match models

@@ -67,7 +67,7 @@ docker compose up -d db
 
 # Backend (Python 3.12 — see .python-version)
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt   # runtime deps + pytest/ruff
+pip install -e ".[dev]"                # runtime deps + pytest/ruff/pip-audit
 cp .env.example .env          # DATABASE_URL is pre-filled for the Docker DB
 python -m backend.scripts.hash_password "your-password"   # paste into APP_PASSWORD_HASH
 alembic upgrade head
