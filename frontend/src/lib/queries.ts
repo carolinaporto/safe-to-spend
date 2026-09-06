@@ -18,6 +18,7 @@ import type {
   IncomeSummary,
   MerchantRule,
   MonthBudget,
+  MonthSummary,
   Person,
   PersonBalance,
   PlanConfig,
@@ -222,6 +223,15 @@ export function useByCategory(params: { from?: string; to?: string } = {}) {
   return useQuery({
     queryKey: ["dashboard", "by-category", query],
     queryFn: () => api<ByCategory>(`/api/dashboard/by-category?${query}`),
+  });
+}
+
+export function useMonthSummary(month: string) {
+  return useQuery({
+    queryKey: ["dashboard", "month", month],
+    queryFn: () =>
+      api<MonthSummary>(`/api/dashboard/month?month=${month}`),
+    placeholderData: (prev) => prev,
   });
 }
 

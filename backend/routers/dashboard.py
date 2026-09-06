@@ -207,6 +207,58 @@ def by_category_endpoint(
     )
 
 
+# --------------------------------------------------------------- month view
+
+class MonthSummary(ApiModel):
+    month: str
+    is_current: bool
+    spent_usd: MoneyStr
+    scheduled_usd: MoneyStr  # recurring + committed still to come this month
+    categories: list[CategorySpend]
+
+
+@router.get("/month", response_model=MonthSummary)
+def month_summary(
+    month: str = Query(pattern=r"^\d{4}-\d{2}$"),
+    db: Session = Depends(get_db),
+) -> MonthSummary:
+    first = dt.date.fromisoformat(f"{month}-01")
+    last = add_months(first, 1) - dt.timedelta(days=1)
+    today = dt.date.today()
+    cats = _category_lookup(db)
+
+    rows = [
+        _spend_row(cid, amount, cats)
+        for cid, amount in by_category(db, first, last, for_report=True)
+    ]
+    rows.sort(key=lambda r: r.amount_usd, reverse=True)
+    spent = money(sum((r.amount_usd for r in rows), ZERO))
+
+    scheduled = ZERO
+    if last >= today:
+        from_day = max(first, today)
+        config = get_plan_config(db)
+        for rule in db.execute(
+            select(RecurringRule).where(RecurringRule.is_income.is_(False))
+        ).scalars():
+            per = convert_to_usd(db, rule.amount, rule.currency, today).amount_usd
+            scheduled += per * len(
+                upcoming_occurrences(rule, from_day, last)
+            )
+        for item in config.committed_costs or []:
+            due = item.get("due_date")
+            if due and from_day <= dt.date.fromisoformat(due) <= last:
+                scheduled += money(item.get("amount_usd", "0"))
+
+    return MonthSummary(
+        month=month,
+        is_current=first <= today <= last,
+        spent_usd=spent,
+        scheduled_usd=money(scheduled),
+        categories=rows,
+    )
+
+
 # ------------------------------------------------------------------ cashflow
 
 class CashflowMonth(ApiModel):

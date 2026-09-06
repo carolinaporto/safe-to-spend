@@ -182,6 +182,52 @@ def test_by_category_grouped_by_month(
     assert months == {"2026-06-01": "40.00", "2026-07-01": "55.00"}
 
 
+def test_month_summary_reports_a_past_month(
+    api_client: TestClient,
+    auth_headers: dict,
+    account: Account,
+    groceries: Category,
+    db: Session,
+) -> None:
+    _txn(
+        db,
+        account,
+        kind=TransactionKind.expense,
+        direction=TransactionDirection.out,
+        amount="40.00",
+        on=dt.date(2026, 3, 10),
+        category=groceries,
+    )
+    _txn(
+        db,
+        account,
+        kind=TransactionKind.expense,
+        direction=TransactionDirection.out,
+        amount="15.00",
+        on=dt.date(2026, 3, 20),
+        category=groceries,
+    )
+    body = api_client.get(
+        "/api/dashboard/month?month=2026-03", headers=auth_headers
+    ).json()
+    assert body["month"] == "2026-03"
+    assert body["is_current"] is False
+    assert body["spent_usd"] == "55.00"
+    assert body["scheduled_usd"] == "0.00"  # month fully in the past
+    assert body["categories"][0]["name"] == "Groceries"
+
+
+def test_month_summary_rejects_a_bad_month(
+    api_client: TestClient, auth_headers: dict
+) -> None:
+    assert (
+        api_client.get(
+            "/api/dashboard/month?month=nope", headers=auth_headers
+        ).status_code
+        == 422
+    )
+
+
 def test_cashflow_returns_a_row_per_month(
     api_client: TestClient, auth_headers: dict, account: Account
 ) -> None:

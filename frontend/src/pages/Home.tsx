@@ -1,4 +1,5 @@
-import { Warning } from "@phosphor-icons/react";
+import { CaretLeft, CaretRight, Warning } from "@phosphor-icons/react";
+import { useState } from "react";
 import styled from "styled-components";
 
 import { AddTransactionForm } from "../components/AddTransactionForm";
@@ -7,14 +8,21 @@ import {
   CategoryDonut,
   ProjectionChart,
 } from "../components/charts";
-import { Card, Muted, PageTitle, Stack } from "../components/ui";
+import {
+  Card,
+  GhostButton,
+  Muted,
+  PageTitle,
+  Row,
+  Stack,
+} from "../components/ui";
 import { formatDate, formatMoney } from "../lib/format";
 import {
   useBudget,
-  useByCategory,
   useCards,
   useCashflow,
   useDashboardBalances,
+  useMonthSummary,
   useOverview,
   useProjection,
   useTransactions,
@@ -22,6 +30,20 @@ import {
 import type { TrafficLight } from "../lib/types";
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
+
+function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(month: string): string {
+  const [y, m] = month.split("-").map(Number);
+  return new Date(y, m - 1).toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+}
 
 const LIGHT_TOKEN: Record<TrafficLight, "success" | "warning" | "danger"> = {
   green: "success",
@@ -118,24 +140,63 @@ const AlertRow = styled.div`
   }
 `;
 
-const AccountGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+const Spread = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: ${({ theme }) => theme.space.md};
 `;
 
-const AccountCard = styled(Card)`
+const Stepper = styled.div`
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: ${({ theme }) => theme.space.xs};
 `;
 
-const AccountBalances = styled.div`
+const StepBtn = styled(GhostButton)`
+  padding: ${({ theme }) => `${theme.space.xxs} ${theme.space.sm}`};
+`;
+
+const MonthTotals = styled.div`
+  display: flex;
+  gap: ${({ theme }) => theme.space.lg};
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+`;
+
+const BigNum = styled.span`
+  font-size: ${({ theme }) => theme.fontSize.xl};
+  font-weight: ${({ theme }) => theme.fontWeight.semibold};
+`;
+
+// One tight row per account instead of a grid of big cards.
+const AcctList = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const AcctRow = styled.div<{ $alert?: boolean }>`
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: ${({ theme }) => theme.space.md};
+  padding: ${({ theme }) => `${theme.space.sm} 0`};
+  font-size: ${({ theme }) => theme.fontSize.sm};
   font-variant-numeric: tabular-nums;
+  color: ${({ theme, $alert }) =>
+    $alert ? theme.color.warning : theme.color.text};
+
+  & + & {
+    border-top: 1px solid ${({ theme }) => theme.color.border};
+  }
+`;
+
+const AcctRight = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: ${({ theme }) => theme.space.xxs};
+  text-align: right;
 `;
 
 // Dashboard on the left, a persistent add form on the right. On narrow
@@ -162,10 +223,11 @@ const Aside = styled.div`
 `;
 
 export function Home() {
+  const [month, setMonth] = useState(currentMonth());
   const overview = useOverview();
   const balances = useDashboardBalances();
   const projection = useProjection();
-  const byCategory = useByCategory();
+  const monthView = useMonthSummary(month);
   const cashflow = useCashflow(6);
   const review = useTransactions({ needs_review: true, page_size: 1 });
   const budget = useBudget(currentMonth());
@@ -189,6 +251,7 @@ export function Home() {
   const unreviewedTotal = review.data?.total ?? 0;
   const cardPanels = cards.data ?? [];
   const dueCards = cardPanels.filter((c) => c.alert);
+  const cardByAccount = new Map(cardPanels.map((c) => [c.account_id, c]));
   const hasReceivables =
     o.receivables_usd !== "0.00" && !o.receivables_usd.startsWith("-");
   const hasAlerts =
@@ -265,9 +328,54 @@ export function Home() {
           )}
         </ChartCard>
         <ChartCard>
-          <ChartTitle>This month by category</ChartTitle>
-          {byCategory.data?.categories && (
-            <CategoryDonut rows={byCategory.data.categories} />
+          <Spread>
+            <ChartTitle>{monthLabel(month)}</ChartTitle>
+            <Stepper>
+              <StepBtn
+                type="button"
+                aria-label="Previous month"
+                onClick={() => setMonth((m) => shiftMonth(m, -1))}
+              >
+                <CaretLeft size={14} />
+              </StepBtn>
+              {month !== currentMonth() && (
+                <StepBtn
+                  type="button"
+                  onClick={() => setMonth(currentMonth())}
+                >
+                  Today
+                </StepBtn>
+              )}
+              <StepBtn
+                type="button"
+                aria-label="Next month"
+                onClick={() => setMonth((m) => shiftMonth(m, 1))}
+              >
+                <CaretRight size={14} />
+              </StepBtn>
+            </Stepper>
+          </Spread>
+          <MonthTotals>
+            <div>
+              <BigNum>
+                {formatMoney(monthView.data?.spent_usd ?? "0", "USD")}
+              </BigNum>{" "}
+              <Muted as="span">spent</Muted>
+            </div>
+            {monthView.data &&
+              monthView.data.scheduled_usd !== "0.00" && (
+                <div>
+                  <Muted as="span">
+                    + {formatMoney(monthView.data.scheduled_usd, "USD")}{" "}
+                    scheduled
+                  </Muted>
+                </div>
+              )}
+          </MonthTotals>
+          {monthView.data && monthView.data.categories.length > 0 ? (
+            <CategoryDonut rows={monthView.data.categories} />
+          ) : (
+            <Muted>Nothing logged for {monthLabel(month)} yet.</Muted>
           )}
         </ChartCard>
       </ChartGrid>
@@ -313,47 +421,39 @@ export function Home() {
         </Card>
       )}
 
-      {cardPanels.length > 0 && (
-        <Stack $gap="md">
-          <ChartTitle>Credit cards</ChartTitle>
-          <AccountGrid>
-            {cardPanels.map((c) => (
-              <AccountCard key={c.account_id}>
-                <strong>{c.name}</strong>
-                <AccountBalances>
-                  <span>{formatMoney(c.current_balance_usd, "USD")}</span>
-                  <Muted as="span">owed now</Muted>
-                </AccountBalances>
-                <Muted as="span">
-                  closed statement{" "}
-                  {formatMoney(c.statement_balance_usd, "USD")}
-                  {c.due_date ? ` · due ${formatDate(c.due_date)}` : ""}
-                </Muted>
-              </AccountCard>
-            ))}
-          </AccountGrid>
-        </Stack>
-      )}
-
-      <Stack $gap="md">
+      <Card>
         <ChartTitle>Accounts</ChartTitle>
-        <AccountGrid>
-          {(balances.data?.accounts ?? []).map((a) => (
-            <AccountCard key={a.id}>
-              <strong>{a.name}</strong>
-              <Muted as="span">
-                {a.institution} · {a.kind.replace("_", " ")}
-              </Muted>
-              <AccountBalances>
-                <span>{formatMoney(a.balance, a.currency)}</span>
-                {a.currency !== "USD" && (
-                  <Muted as="span">≈ {formatMoney(a.balance_usd, "USD")}</Muted>
-                )}
-              </AccountBalances>
-            </AccountCard>
-          ))}
-        </AccountGrid>
-      </Stack>
+        <AcctList>
+          {(balances.data?.accounts ?? []).map((a) => {
+            const cardInfo = cardByAccount.get(a.id);
+            return (
+              <AcctRow key={a.id} $alert={cardInfo?.alert}>
+                <Row $gap="sm">
+                  <span>{a.name}</span>
+                  <Muted as="span">
+                    {a.institution || a.kind.replace("_", " ")}
+                  </Muted>
+                </Row>
+                <AcctRight>
+                  <span>{formatMoney(a.balance, a.currency)}</span>
+                  {a.currency !== "USD" && (
+                    <Muted as="span">
+                      ≈ {formatMoney(a.balance_usd, "USD")}
+                    </Muted>
+                  )}
+                  {cardInfo?.due_date && (
+                    <Muted as="span">
+                      statement{" "}
+                      {formatMoney(cardInfo.statement_balance_usd, "USD")} ·
+                      due {formatDate(cardInfo.due_date)}
+                    </Muted>
+                  )}
+                </AcctRight>
+              </AcctRow>
+            );
+          })}
+        </AcctList>
+      </Card>
         </Stack>
 
         <Aside>

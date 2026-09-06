@@ -150,6 +150,14 @@ export interface ByCategory {
   months: { month: string; categories: CategorySpend[] }[] | null;
 }
 
+export interface MonthSummary {
+  month: string;
+  is_current: boolean;
+  spent_usd: string;
+  scheduled_usd: string;
+  categories: CategorySpend[];
+}
+
 export interface CashflowMonth {
   month: string;
   essential: string;
