@@ -5,7 +5,6 @@ import {
   Gear,
   House,
   ListBullets,
-  PlusCircle,
   TrayArrowDown,
   TrendUp,
   Users,
@@ -24,7 +23,6 @@ export interface NavItem {
 export const navItems: NavItem[] = [
   { to: "/", label: "Home", icon: House, end: true },
   { to: "/transactions", label: "Transactions", icon: ListBullets },
-  { to: "/quick-add", label: "Quick add", icon: PlusCircle },
   { to: "/import", label: "Import", icon: FileArrowUp, requiresImport: true },
   { to: "/review", label: "Review", icon: TrayArrowDown },
   { to: "/transfers", label: "Transfers", icon: ArrowsLeftRight },

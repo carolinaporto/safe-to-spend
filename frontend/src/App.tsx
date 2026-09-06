@@ -8,7 +8,6 @@ import { Import } from "./pages/Import";
 import { Income } from "./pages/Income";
 import { Login } from "./pages/Login";
 import { People } from "./pages/People";
-import { QuickAdd } from "./pages/QuickAdd";
 import { Review } from "./pages/Review";
 import { Settings } from "./pages/Settings";
 import { Transactions } from "./pages/Transactions";
@@ -30,7 +29,6 @@ export function App() {
       <Route element={<AppShell />}>
         <Route index element={<Home />} />
         <Route path="transactions" element={<Transactions />} />
-        <Route path="quick-add" element={<QuickAdd />} />
         <Route path="import" element={<Import />} />
         <Route path="review" element={<Review />} />
         <Route path="transfers" element={<Transfers />} />

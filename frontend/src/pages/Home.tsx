@@ -1,6 +1,7 @@
 import { Warning } from "@phosphor-icons/react";
 import styled from "styled-components";
 
+import { AddTransactionForm } from "../components/AddTransactionForm";
 import {
   CashflowChart,
   CategoryDonut,
@@ -137,6 +138,29 @@ const AccountBalances = styled.div`
   font-variant-numeric: tabular-nums;
 `;
 
+// Dashboard on the left, a persistent add form on the right. On narrow
+// screens it collapses to one column with the form right under the hero.
+const Split = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: ${({ theme }) => theme.space.xl};
+  align-items: start;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const Aside = styled.div`
+  position: sticky;
+  top: ${({ theme }) => theme.space.xl};
+
+  @media (max-width: 1024px) {
+    position: static;
+    order: -1;
+  }
+`;
+
 export function Home() {
   const overview = useOverview();
   const balances = useDashboardBalances();
@@ -194,6 +218,8 @@ export function Home() {
         </Progress>
       </Hero>
 
+      <Split>
+        <Stack $gap="xl">
       <StatGrid>
         <Stat>
           <StatLabel>Net worth (USD)</StatLabel>
@@ -326,6 +352,12 @@ export function Home() {
           ))}
         </AccountGrid>
       </Stack>
+        </Stack>
+
+        <Aside>
+          <AddTransactionForm />
+        </Aside>
+      </Split>
     </Stack>
   );
 }
