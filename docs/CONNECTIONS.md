@@ -3,18 +3,34 @@
 Pull transactions straight from the bank instead of exporting CSVs. This is a
 fleshed-out version of the "Wise API sync / Plaid" line in `PLAN.md` Phase 5.
 
-- **Wise** — direct, using a personal API token. One token covers **every
-  currency balance** (BRL and USD live under the same personal profile).
 - **Chase** — no public personal API. Goes through **Teller** (`teller.io`),
   which has an official OAuth connection to Chase and a free development tier.
+- **Wise** — **stays on CSV import.** See the box below.
 
 Everything is **read-only**. Nothing here can move money.
+
+> ## ⚠️ Wise direct sync is not possible (checked 2026-09-06)
+>
+> Wise removed API-request signing for **personal** accounts under PSD2. Their
+> "Manage public keys" page now says: *"we no longer support signing API
+> requests to complete strong customer authentication on personal Wise
+> accounts. You can no longer retrieve account statements … using this method."*
+> Without signing, the statement endpoints are unreachable for personal
+> profiles. `GET /v4/profiles/{id}/balances` still works token-only, but
+> balance-without-history isn't worth building here.
+>
+> Alternatives, none of them good: a Wise **Business** account keeps the
+> signing flow (revisit if one is ever opened); aggregators don't cover this
+> Wise account (Teller = US banks only; Plaid/GoCardless = EU/UK open banking,
+> needs an EEA Wise account). **Decision: keep importing Wise via CSV.**
+>
+> The Wise section below is kept for reference / the Business-account path.
 
 ---
 
 ## 1. How each provider works
 
-### Wise
+### Wise (reference only — needs a Business account, see box above)
 
 Base URL `https://api.transferwise.com` (sandbox: `https://api.sandbox.transferwise.tech`).
 Auth: `Authorization: Bearer <WISE_API_TOKEN>`.
@@ -113,8 +129,6 @@ external id)" logic out of `backend/services/imports.py` into a shared
 
 New **Connections** card in Settings:
 
-- Wise: shows configured / last sync / **Sync now**; lists its currency
-  balances with the app Account each maps to.
 - **Connect a bank (Chase)** → Teller Connect → POST enrollment to
   `/api/connections/teller` → account-mapping step (pick/create an Account per
   discovered external account).
@@ -125,16 +139,15 @@ New **Connections** card in Settings:
 
 | Env var | Where | Notes |
 |---|---|---|
-| `WISE_API_TOKEN` | Vercel env only | personal token — powerful, never in DB, never logged |
-| `WISE_PRIVATE_KEY` | Vercel env only | PEM contents; public half registered in Wise UI |
 | `TELLER_APPLICATION_ID` | Vercel env | |
 | `TELLER_ENVIRONMENT` | Vercel env | `development` to start |
 | `TELLER_CERT` / `TELLER_KEY` | Vercel env | PEM; written to `/tmp` on cold start for the mTLS client |
 | `APP_ENCRYPTION_KEY` | Vercel env only | Fernet key; encrypts Teller `access_token` at rest in Neon |
 
-New dependency: `cryptography` (Fernet for token storage + RSA-SHA256 for Wise
-signing). All outbound calls go through a pinned `httpx` client with short
-timeouts and a response-size cap, matching `http_security.py`.
+New dependency: `cryptography` (Fernet for Teller token storage at rest; also
+RSA-SHA256 request signing if the Wise Business path is ever taken). All
+outbound calls go through a pinned `httpx` client with short timeouts and a
+response-size cap, matching `http_security.py`.
 
 ### Effect on the runway math
 
@@ -147,40 +160,27 @@ remain manual (optionally seedable from the provider's running balance).
 
 ## 3. Phases
 
-**6a — Plumbing + Wise.** Migration, `ingest.py` refactor, Wise adapter
-(profiles / balances / statement + SCA signing), sync cron + endpoint, Fernet
-util, Connections UI (Wise status + Sync now + balance→Account mapping). Tests:
-signature generation, statement parsing from a saved fixture, idempotent
-re-sync.
+**6a — Plumbing + Teller.** Migration (`bank_connections`, `accounts` columns,
+enum values), `ingest.py` refactor, `cryptography`/Fernet util, mTLS `httpx`
+client, Teller adapter (accounts + paginated transactions), Teller Connect
+widget, CSP delta, `/api/connections/teller` create + `/sync` + reconnect,
+encrypted token storage, sync cron, Connections UI in Settings (status,
+Sync now, account mapping, reconnect). Tests: transaction parsing + sign
+convention per account type, idempotent re-sync, reconnect path.
 
-**6b — Chase via Teller.** mTLS `httpx` client, Teller adapter (accounts +
-paginated transactions), Teller Connect widget, CSP delta, `/api/connections/teller`
-create + reconnect, encrypted token storage, `needs_reauth` UI, pending/posted
-handling. Tests: transaction parsing + sign convention per account type,
-reconnect path.
+**6b — Polish.** Match against pre-existing CSV rows when `external_id` is
+absent (date + amount + fuzzy merchant), one-time deep backfill, pending →
+posted reconciliation, per-connection error surfacing, "remove keeps
+transactions" semantics.
 
-**6c — Polish.** Match against pre-existing CSV rows when `external_id` is
-absent (date + amount + fuzzy merchant), one-time deep backfill, per-connection
-error surfacing, "remove keeps transactions" semantics.
+**Wise (deferred).** Only reachable through a Wise **Business** account. If one
+is ever opened: Wise adapter (profiles / balances / statement + RSA-SHA256
+request signing), a second provider in the same `bank_connections` model,
+env-configured token/key. Everything else (ingest, cron, UI) is already shared.
 
 ---
 
 ## 4. One-time manual setup
-
-### Wise
-
-1. wise.com (web, personal account) → **Settings → API tokens** → create a
-   token, copy it.
-2. Generate a keypair locally:
-   ```
-   openssl genrsa -out wise_private.pem 2048
-   openssl rsa -pubout -in wise_private.pem -out wise_public.pem
-   ```
-3. wise.com → **Settings → Manage public keys** → add `wise_public.pem`.
-4. Put `WISE_API_TOKEN` and `WISE_PRIVATE_KEY` (contents of
-   `wise_private.pem`) in Vercel env (Production + Preview).
-
-BRL and USD need nothing extra — same token, both balances.
 
 ### Teller
 

@@ -344,7 +344,8 @@ Shared expenses and settlements, external account handling, credit card statemen
 Installable PWA with offline quick add, receipt parsing via Anthropic API, email alerts.
 
 **Phase 6 — Bank connections**
-Live transaction sync: Wise (direct personal API) and Chase (via Teller).
+Live transaction sync for Chase via Teller. (Wise personal API can no longer
+serve statements under PSD2 — it stays on CSV import.)
 Full design, data model and runbook in [`CONNECTIONS.md`](CONNECTIONS.md).
 
 ---
