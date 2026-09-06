@@ -10,10 +10,12 @@ from backend.models.enums import (
     AccountKind,
     CategoryNature,
     Currency,
+    RecurringFrequency,
     TransactionDirection,
     TransactionKind,
 )
 from backend.models.plan_config import PLAN_CONFIG_ID, PlanConfig
+from backend.models.recurring_rule import RecurringRule
 from backend.models.transaction import Transaction
 from backend.services.runway import compute_overview, future_committed_costs
 
@@ -141,6 +143,69 @@ def test_traffic_light_thresholds(db: Session, account: Account) -> None:
     result = compute_overview(db, today)
     # projected ≈ 1000 / 16 * 31 ≈ 1937  vs ceiling ~1655 -> >110% -> danger
     assert result.traffic_light == "danger"
+
+
+def test_recurring_bills_are_reserved_from_available(
+    db: Session, account: Account
+) -> None:
+    today = dt.date(2026, 3, 1)
+    _config(db, reserve="0", committed=[], end=dt.date(2026, 6, 1))
+    # 3 monthly occurrences left (Mar 15, Apr 15, May 15) at $200 = $600.
+    db.add(
+        RecurringRule(
+            name="Electricity",
+            account_id=account.id,
+            amount=Decimal("200.00"),
+            currency="USD",
+            frequency=RecurringFrequency.monthly,
+            day_of_month=15,
+            start_date=dt.date(2026, 1, 1),
+        )
+    )
+    db.flush()
+
+    result = compute_overview(db, today)
+    assert result.future_recurring_costs_usd == Decimal("600.00")
+    assert result.available_usd == Decimal("9400.00")  # 10000 − 600
+
+
+def test_recurring_generated_spend_is_off_the_monthly_pace(
+    db: Session, account: Account
+) -> None:
+    today = dt.date(2026, 3, 20)
+    _config(db, reserve="0", committed=[], end=dt.date(2026, 9, 1))
+    groceries = Category(name="Groceries", nature=CategoryNature.essential)
+    rule = RecurringRule(
+        name="Rent",
+        account_id=account.id,
+        amount=Decimal("1200.00"),
+        currency="USD",
+        frequency=RecurringFrequency.monthly,
+        day_of_month=1,
+        start_date=dt.date(2026, 1, 1),
+    )
+    db.add_all([groceries, rule])
+    db.flush()
+
+    _expense(db, account, "150.00", dt.date(2026, 3, 5), groceries)
+    # A rent transaction the rule generated this month.
+    db.add(
+        Transaction(
+            date=dt.date(2026, 3, 1),
+            account_id=account.id,
+            direction=TransactionDirection.out,
+            kind=TransactionKind.expense,
+            amount=Decimal("1200.00"),
+            currency="USD",
+            fx_rate_to_usd=Decimal("1"),
+            amount_usd=Decimal("1200.00"),
+            recurring_id=rule.id,
+        )
+    )
+    db.flush()
+
+    result = compute_overview(db, today)
+    assert result.mtd_spend_usd == Decimal("150.00")  # rent excluded
 
 
 def test_expected_future_income_is_not_counted(

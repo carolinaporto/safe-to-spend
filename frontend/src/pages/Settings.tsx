@@ -47,6 +47,7 @@ import type {
   CategoryNature,
   CommittedCost,
   RecurringFrequency,
+  RecurringRule,
 } from "../lib/types";
 
 const NATURES: CategoryNature[] = [
@@ -853,6 +854,7 @@ function RecurringRulesSection() {
   const run = useRunRecurringRule();
   const meta = useMeta();
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState({
     name: "",
     account_id: "",
@@ -872,22 +874,60 @@ function RecurringRulesSection() {
     (categories.data ?? []).map((c) => [c.id, c.name] as const),
   );
 
-  async function add(e: React.FormEvent) {
+  function startEdit(r: RecurringRule) {
+    setEditingId(r.id);
+    setDraft({
+      name: r.name,
+      account_id: String(r.account_id),
+      category_id: r.category_id ? String(r.category_id) : "",
+      amount: r.amount,
+      currency: r.currency,
+      frequency: r.frequency,
+      day_of_month: String(r.day_of_month),
+      start_date: r.start_date.slice(0, 10),
+      is_income: r.is_income,
+    });
+    setError(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setDraft({
+      name: "",
+      account_id: "",
+      category_id: "",
+      amount: "",
+      currency: "USD",
+      frequency: "monthly",
+      day_of_month: "1",
+      start_date: today(),
+      is_income: false,
+    });
+    setError(null);
+  }
+
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const body = {
+      name: draft.name,
+      account_id: Number(draft.account_id),
+      category_id: draft.category_id ? Number(draft.category_id) : null,
+      amount: draft.amount,
+      currency: draft.currency,
+      frequency: draft.frequency,
+      day_of_month: Number(draft.day_of_month) || 1,
+      start_date: draft.start_date,
+      is_income: draft.is_income,
+    };
     try {
-      await save.mutateAsync({
-        name: draft.name,
-        account_id: Number(draft.account_id),
-        category_id: draft.category_id ? Number(draft.category_id) : null,
-        amount: draft.amount,
-        currency: draft.currency,
-        frequency: draft.frequency,
-        day_of_month: Number(draft.day_of_month) || 1,
-        start_date: draft.start_date,
-        is_income: draft.is_income,
-      });
-      setDraft({ ...draft, name: "", amount: "" });
+      if (editingId !== null) {
+        await save.mutateAsync({ id: editingId, ...body });
+        cancelEdit();
+      } else {
+        await save.mutateAsync(body);
+        setDraft({ ...draft, name: "", amount: "" });
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not save");
     }
@@ -899,6 +939,8 @@ function RecurringRulesSection() {
       <Muted>
         Templates that generate transactions on a schedule. A daily job
         creates any that have come due; “Run now” catches one up immediately.
+        Expense rules are reserved from your monthly budget for every month
+        left in the plan — edit the amount whenever it changes.
       </Muted>
 
       <TableScroll>
@@ -931,8 +973,15 @@ function RecurringRulesSection() {
                 </Td>
                 <Td>{r.last_generated_date ?? "never"}</Td>
                 <Td>
-                  <Row $gap="sm">
-                    {!meta.demo_mode && (
+                  {!meta.demo_mode && (
+                    <Row $gap="sm">
+                      <GhostButton
+                        type="button"
+                        aria-label={`Edit ${r.name}`}
+                        onClick={() => startEdit(r)}
+                      >
+                        <PencilSimple size={14} />
+                      </GhostButton>
                       <GhostButton
                         type="button"
                         onClick={() => run.mutate(r.id)}
@@ -940,8 +989,6 @@ function RecurringRulesSection() {
                       >
                         Run now
                       </GhostButton>
-                    )}
-                    {!meta.demo_mode && (
                       <GhostButton
                         type="button"
                         aria-label={`Delete ${r.name}`}
@@ -949,8 +996,8 @@ function RecurringRulesSection() {
                       >
                         <TrashSimple size={14} />
                       </GhostButton>
-                    )}
-                  </Row>
+                    </Row>
+                  )}
                 </Td>
               </tr>
             ))}
@@ -958,8 +1005,9 @@ function RecurringRulesSection() {
         </Table>
       </TableScroll>
 
+      {editingId !== null && <strong>Editing rule #{editingId}</strong>}
       {!meta.demo_mode && (
-        <AddForm onSubmit={add}>
+        <AddForm onSubmit={submit}>
           <Field>
             <FieldLabel>Name</FieldLabel>
             <Input
@@ -1070,8 +1118,14 @@ function RecurringRulesSection() {
             </Select>
           </Field>
           <Button type="submit" disabled={save.isPending}>
-            <Plus size={16} /> Add rule
+            <Plus size={16} />{" "}
+            {editingId !== null ? "Save changes" : "Add rule"}
           </Button>
+          {editingId !== null && (
+            <GhostButton type="button" onClick={cancelEdit}>
+              Cancel
+            </GhostButton>
+          )}
         </AddForm>
       )}
       {error && <ErrorText>{error}</ErrorText>}

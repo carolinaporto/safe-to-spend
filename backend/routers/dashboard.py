@@ -8,11 +8,14 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.deps import require_auth
 from backend.models.category import Category
+from backend.models.recurring_rule import RecurringRule
 from backend.money import ZERO, money
 from backend.schemas.common import ApiModel, MoneyStr
 from backend.services.balances import account_balances, net_worth
 from backend.services.cards import card_panels
 from backend.services.dates import add_months, month_start
+from backend.services.fx import convert_to_usd
+from backend.services.recurring import upcoming_occurrences
 from backend.services.runway import (
     compute_overview,
     get_plan_config,
@@ -85,6 +88,7 @@ class OverviewOut(ApiModel):
     net_worth_usd: MoneyStr
     emergency_reserve_usd: MoneyStr
     future_committed_costs_usd: MoneyStr
+    future_recurring_costs_usd: MoneyStr
     available_usd: MoneyStr
     months_remaining: str
     monthly_ceiling_usd: MoneyStr
@@ -113,6 +117,7 @@ def overview(db: Session = Depends(get_db)) -> OverviewOut:
         net_worth_usd=result.net_worth_usd,
         emergency_reserve_usd=result.emergency_reserve_usd,
         future_committed_costs_usd=result.future_committed_costs_usd,
+        future_recurring_costs_usd=result.future_recurring_costs_usd,
         available_usd=result.available_usd,
         months_remaining=format(result.months_remaining, "f"),
         monthly_ceiling_usd=result.monthly_ceiling_usd,
@@ -300,6 +305,14 @@ def projection(db: Session = Depends(get_db)) -> ProjectionOut:
                     amount_usd=amount,
                 )
             )
+
+    # Recurring bills fall on their own dates; the burn rate is flexible-only.
+    for rule in db.execute(
+        select(RecurringRule).where(RecurringRule.is_income.is_(False))
+    ).scalars():
+        per = convert_to_usd(db, rule.amount, rule.currency, today).amount_usd
+        for occ in upcoming_occurrences(rule, today, config.academic_year_end):
+            costs_by_date[occ] = costs_by_date.get(occ, ZERO) + per
 
     points: list[ProjectionPoint] = []
     zero_crossing: dt.date | None = None

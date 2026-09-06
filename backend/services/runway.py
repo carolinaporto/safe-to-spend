@@ -4,8 +4,10 @@
                        + receivables from other people
                        − liabilities owed
     available        = net_worth_usd − emergency_reserve − future_committed_costs
+                       − future_recurring_costs (rent/subscriptions to year end)
     monthly_ceiling  = available / months_remaining
-    mtd_spend        = Σ this month's consumption (setup excluded from the pace)
+    mtd_spend        = Σ this month's flexible consumption
+                       (setup and recurring bills excluded from the pace)
     daily_allowance  = (monthly_ceiling − mtd_spend) / days_left_in_month
 
 Open credit-card statements are already reflected as negative card balances.
@@ -22,6 +24,7 @@ from backend.money import ZERO, money, to_decimal
 from backend.services.balances import account_balances, net_worth
 from backend.services.dates import month_end, month_start
 from backend.services.people import total_liabilities, total_receivables
+from backend.services.recurring import future_recurring_costs
 from backend.services.spending import total_consumption, trailing_daily_burn
 
 DAYS_PER_MONTH = Decimal("30.4375")
@@ -72,6 +75,7 @@ class Overview:
     net_worth_usd: Decimal
     emergency_reserve_usd: Decimal
     future_committed_costs_usd: Decimal
+    future_recurring_costs_usd: Decimal
     available_usd: Decimal
     months_remaining: Decimal
     monthly_ceiling_usd: Decimal
@@ -107,7 +111,8 @@ def compute_overview(db: Session, today: dt.date | None = None) -> Overview:
     nw = money(owned + receivables - liabilities)
     reserve = money(config.emergency_reserve_usd)
     committed = future_committed_costs(config, today)
-    available = money(nw - reserve - committed)
+    recurring = future_recurring_costs(db, today, config.academic_year_end)
+    available = money(nw - reserve - committed - recurring)
 
     days_to_end = max(0, (config.academic_year_end - today).days)
     months_remaining = max(
@@ -116,7 +121,11 @@ def compute_overview(db: Session, today: dt.date | None = None) -> Overview:
     monthly_ceiling = money(available / months_remaining)
 
     mtd = total_consumption(
-        db, month_start(today), today, exclude_setup=True
+        db,
+        month_start(today),
+        today,
+        exclude_setup=True,
+        exclude_recurring=True,
     )
     remaining_month = money(monthly_ceiling - mtd)
 
@@ -144,6 +153,7 @@ def compute_overview(db: Session, today: dt.date | None = None) -> Overview:
         net_worth_usd=nw,
         emergency_reserve_usd=reserve,
         future_committed_costs_usd=committed,
+        future_recurring_costs_usd=recurring,
         available_usd=available,
         months_remaining=months_remaining.quantize(Decimal("0.01")),
         monthly_ceiling_usd=monthly_ceiling,

@@ -119,6 +119,7 @@ export interface DashboardOverview {
   net_worth_usd: string;
   emergency_reserve_usd: string;
   future_committed_costs_usd: string;
+  future_recurring_costs_usd: string;
   available_usd: string;
   months_remaining: string;
   monthly_ceiling_usd: string;

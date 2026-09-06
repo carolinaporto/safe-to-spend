@@ -71,6 +71,7 @@ def total_consumption(
     date_to: dt.date,
     *,
     exclude_setup: bool = False,
+    exclude_recurring: bool = False,
 ) -> Decimal:
     stmt = select(_SUM).where(
         *_expense_where(exclude_from_budget_only=True),
@@ -85,6 +86,10 @@ def total_consumption(
             Transaction.category_id.is_(None)
             | Transaction.category_id.notin_(setup_ids)
         )
+    if exclude_recurring:
+        # Recurring bills are reserved from `available` up front (spec 4.5),
+        # so they must not also count against the monthly pace.
+        stmt = stmt.where(Transaction.recurring_id.is_(None))
     gross = money(db.scalar(stmt) or ZERO)
     others = sum(
         _others_shares_by_category(db, date_from, date_to).values(), ZERO
@@ -184,7 +189,10 @@ def income_by_month(
 def trailing_daily_burn(
     db: Session, today: dt.date, window_days: int = 30
 ) -> Decimal:
-    """Average daily consumption over the trailing window (for runway)."""
+    """Average daily *flexible* consumption over the trailing window (for
+    runway). Setup and recurring bills are handled separately."""
     start = today - dt.timedelta(days=window_days)
-    total = total_consumption(db, start, today, exclude_setup=True)
+    total = total_consumption(
+        db, start, today, exclude_setup=True, exclude_recurring=True
+    )
     return money(total / Decimal(window_days))

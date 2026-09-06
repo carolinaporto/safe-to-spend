@@ -218,12 +218,19 @@ net_worth_usd     = Σ balances of owned accounts (BRL converted at today's rate
                     − liabilities owed
 
 available         = net_worth_usd − emergency_reserve − future_committed_costs
+                    − future_recurring_costs
+
+future_recurring_costs = Σ not-yet-generated occurrences of expense recurring
+                    rules from today to academic_year_end, at each rule's
+                    current amount (income rules ignored). Editing a rule's
+                    amount re-prices the reservation.
 
 months_remaining  = fractional months between today and academic_year_end
 monthly_ceiling   = available / months_remaining
 
 mtd_spend         = Σ expenses this month
-                    (excluding setup category, transfers, and other people's shares)
+                    (excluding setup category, recurring-rule transactions,
+                    transfers, and other people's shares)
 remaining_month   = monthly_ceiling − mtd_spend
 daily_allowance   = remaining_month / days_remaining_in_month
 ```
@@ -231,7 +238,8 @@ Rules:
 - `daily_allowance` is the primary number on the home screen.
 - Traffic light: green if projected month-end spend is under the ceiling, warning up to 110%, danger above.
 - `setup` category spending is excluded from the monthly pace calculation but still deducted from `available`.
-- Expected future income is never counted in `available`.
+- Recurring bills are reserved from `available` up front, so their generated transactions are excluded from the monthly pace and from the trailing burn rate (no double counting).
+- Expected future income is never counted in `available` — recurring rules flagged `is_income` are ignored by `future_recurring_costs`.
 
 ### 4.6 Credit cards
 Category spending uses accrual (purchase date). Balance projection and runway use cash (due date), with open statements already deducted from net worth. The cards panel shows current balance, closed statement, due date, and an alert within 5 days of the due date.

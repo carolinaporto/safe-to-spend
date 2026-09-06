@@ -227,8 +227,10 @@ export function Home() {
             {formatMoney(o.net_worth_usd, "USD")}
           </StatValue>
           <Muted>
-            available {formatMoney(o.available_usd, "USD")} after reserve &
-            committed
+            {formatMoney(o.available_usd, "USD")} free to spend, after{" "}
+            {formatMoney(o.emergency_reserve_usd, "USD")} reserve,{" "}
+            {formatMoney(o.future_committed_costs_usd, "USD")} committed &{" "}
+            {formatMoney(o.future_recurring_costs_usd, "USD")} in recurring bills
           </Muted>
         </Stat>
         <Stat>

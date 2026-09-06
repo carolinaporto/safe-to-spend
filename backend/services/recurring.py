@@ -1,6 +1,7 @@
 """Recurring rules: templates that generate transactions on a schedule."""
 
 import datetime as dt
+from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -12,6 +13,7 @@ from backend.models.enums import (
 )
 from backend.models.recurring_rule import RecurringRule
 from backend.models.transaction import Transaction
+from backend.money import ZERO, money
 from backend.services.dates import add_months, clamp_day
 from backend.services.fx import convert_to_usd
 
@@ -47,6 +49,38 @@ def occurrences(
                 out.append(occ)
             year += 1
     return sorted(o for o in out if o >= since and o <= end)
+
+
+def upcoming_occurrences(
+    rule: RecurringRule, since: dt.date, until: dt.date
+) -> list[dt.date]:
+    """Occurrences of ``rule`` that fall in ``[since, until]`` and haven't been
+    generated into a transaction yet."""
+    floor = since
+    if rule.last_generated_date and rule.last_generated_date >= floor:
+        floor = rule.last_generated_date + dt.timedelta(days=1)
+    return occurrences(rule, floor, until)
+
+
+def future_recurring_costs(
+    db: Session, today: dt.date, until: dt.date
+) -> Decimal:
+    """Sum, in USD, of every not-yet-generated *expense* recurring occurrence
+    from ``today`` to ``until``. Reserved from `available` so the monthly
+    ceiling already accounts for fixed bills (spec 4.5). Income rules are
+    ignored — expected future income is never counted.
+    """
+    rules = db.execute(
+        select(RecurringRule).where(RecurringRule.is_income.is_(False))
+    ).scalars()
+    total = ZERO
+    for rule in rules:
+        occs = upcoming_occurrences(rule, today, until)
+        if not occs:
+            continue
+        per = convert_to_usd(db, rule.amount, rule.currency, today).amount_usd
+        total += per * len(occs)
+    return money(total)
 
 
 def generate_for_rule(
