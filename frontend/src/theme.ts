@@ -1,6 +1,9 @@
 // The single source of truth for every colour, spacing, radius, shadow and
-// type value in the app. No styled component may hardcode a hex or a pixel
+// type value in the app. No styled component may hardcode a hex or a length
 // value that could live here instead.
+//
+// Spacing and type are in `rem`, so the whole UI scales with the root
+// font-size — which GlobalStyle shrinks on small screens.
 
 export const theme = {
   color: {
@@ -60,23 +63,23 @@ export const theme = {
     "#fbbf24",
   ],
 
-  // 4px base spacing scale
+  // Spacing scale, in rem (0.25rem = 4px at a 16px root).
   space: {
     none: "0",
-    xxs: "2px",
-    xs: "4px",
-    sm: "8px",
-    md: "12px",
-    lg: "16px",
-    xl: "24px",
-    xxl: "32px",
-    xxxl: "48px",
+    xxs: "0.125rem",
+    xs: "0.25rem",
+    sm: "0.5rem",
+    md: "0.75rem",
+    lg: "1rem",
+    xl: "1.5rem",
+    xxl: "2rem",
+    xxxl: "3rem",
   },
 
   radius: {
-    sm: "4px",
-    md: "8px",
-    lg: "12px",
+    sm: "0.25rem",
+    md: "0.5rem",
+    lg: "0.75rem",
     pill: "999px",
   },
 
@@ -86,13 +89,13 @@ export const theme = {
   },
 
   fontSize: {
-    xs: "12px",
-    sm: "13px",
-    md: "15px",
-    lg: "18px",
-    xl: "24px",
-    xxl: "32px",
-    display: "44px",
+    xs: "0.75rem",
+    sm: "0.8125rem",
+    md: "0.9375rem",
+    lg: "1.125rem",
+    xl: "1.5rem",
+    xxl: "2rem",
+    display: "2.75rem",
   },
 
   fontWeight: {
@@ -114,8 +117,16 @@ export const theme = {
   },
 
   layout: {
-    sidebarWidth: "232px",
-    contentMaxWidth: "1120px",
+    sidebarWidth: "14.5rem",
+    contentMaxWidth: "70rem",
+    bottomNavHeight: "3.75rem",
+  },
+
+  // Media-query breakpoints, in em (respect the user's zoom / font settings).
+  bp: {
+    sm: "37.5em", // ~600px — collapse multi-column forms
+    md: "48em", //   ~768px — switch to the mobile nav
+    lg: "64em", //   ~1024px — collapse the dashboard side column
   },
 
   transition: {

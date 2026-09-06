@@ -27,7 +27,7 @@ function shiftMonth(month: string, delta: number): string {
 
 const Line = styled.div`
   display: grid;
-  grid-template-columns: 1.4fr 110px 90px 1fr 110px;
+  grid-template-columns: 1.4fr 7rem 5.5rem 1fr 7rem;
   gap: ${({ theme }) => theme.space.md};
   align-items: center;
   padding: ${({ theme }) => `${theme.space.sm} 0`};
@@ -36,8 +36,31 @@ const Line = styled.div`
     border-top: 1px solid ${({ theme }) => theme.color.border};
   }
 
-  @media (max-width: 720px) {
-    grid-template-columns: 1fr 1fr;
+  @media (max-width: ${({ theme }) => theme.bp.sm}) {
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas:
+      "name name name"
+      "bar bar bar"
+      "amount roll remaining";
+    gap: ${({ theme }) => theme.space.sm};
+    column-gap: ${({ theme }) => theme.space.md};
+
+    & > *:nth-child(1) {
+      grid-area: name;
+    }
+    & > *:nth-child(2) {
+      grid-area: amount;
+    }
+    & > *:nth-child(3) {
+      grid-area: roll;
+    }
+    & > *:nth-child(4) {
+      grid-area: bar;
+    }
+    & > *:nth-child(5) {
+      grid-area: remaining;
+      text-align: right;
+    }
   }
 `;
 

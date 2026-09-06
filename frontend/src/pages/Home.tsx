@@ -86,7 +86,7 @@ const ProgressFill = styled.div<{ $pct: number }>`
 
 const StatGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   gap: ${({ theme }) => theme.space.lg};
 `;
 
@@ -111,7 +111,7 @@ const StatValue = styled.span<{ $negative?: boolean }>`
 
 const ChartGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
   gap: ${({ theme }) => theme.space.lg};
 `;
 
@@ -203,11 +203,11 @@ const AcctRight = styled.div`
 // screens it collapses to one column with the form right under the hero.
 const Split = styled.div`
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 20rem;
   gap: ${({ theme }) => theme.space.xl};
   align-items: start;
 
-  @media (max-width: 1024px) {
+  @media (max-width: ${({ theme }) => theme.bp.lg}) {
     grid-template-columns: 1fr;
   }
 `;
@@ -216,7 +216,7 @@ const Aside = styled.div`
   position: sticky;
   top: ${({ theme }) => theme.space.xl};
 
-  @media (max-width: 1024px) {
+  @media (max-width: ${({ theme }) => theme.bp.lg}) {
     position: static;
     order: -1;
   }

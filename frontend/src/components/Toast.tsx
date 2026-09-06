@@ -39,7 +39,7 @@ const Stack = styled.div`
   gap: ${({ theme }) => theme.space.sm};
   pointer-events: none;
 
-  @media (max-width: 560px) {
+  @media (max-width: ${({ theme }) => theme.bp.sm}) {
     left: ${({ theme }) => theme.space.md};
     right: ${({ theme }) => theme.space.md};
     top: ${({ theme }) => theme.space.md};
@@ -51,8 +51,8 @@ const Item = styled.div<{ $kind: ToastKind }>`
   display: flex;
   align-items: flex-start;
   gap: ${({ theme }) => theme.space.sm};
-  min-width: 240px;
-  max-width: 360px;
+  min-width: 15rem;
+  max-width: 22.5rem;
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
   background: ${({ theme }) => theme.color.surfaceRaised};
   border: 1px solid ${({ theme }) => theme.color.border};
@@ -69,7 +69,7 @@ const Item = styled.div<{ $kind: ToastKind }>`
   font-size: ${({ theme }) => theme.fontSize.sm};
   animation: ${slideIn} ${({ theme }) => theme.transition.base};
 
-  @media (max-width: 560px) {
+  @media (max-width: ${({ theme }) => theme.bp.sm}) {
     max-width: none;
   }
 `;

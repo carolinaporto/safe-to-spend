@@ -15,7 +15,7 @@ import { useAccounts, useIncomeSummary } from "../lib/queries";
 
 const StatGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   gap: ${({ theme }) => theme.space.lg};
 `;
 

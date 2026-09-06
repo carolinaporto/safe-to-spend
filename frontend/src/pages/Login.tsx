@@ -15,7 +15,7 @@ const Screen = styled.div`
 
 const Box = styled(Card)`
   width: 100%;
-  max-width: 360px;
+  max-width: 22.5rem;
 `;
 
 const Heading = styled.h1`

@@ -54,7 +54,7 @@ import type { Category, Transaction } from "../lib/types";
 
 const Filters = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
   gap: ${({ theme }) => theme.space.sm};
 `;
 
@@ -65,7 +65,7 @@ const Bar = styled(Row)`
 const InlineSelect = styled(Select)`
   padding: ${({ theme }) => `${theme.space.xxs} ${theme.space.xs}`};
   font-size: ${({ theme }) => theme.fontSize.xs};
-  max-width: 180px;
+  max-width: 11rem;
 `;
 
 const CategorySelect = styled(InlineSelect)<{ $nature?: keyof Theme["nature"] }>`
@@ -109,7 +109,7 @@ const EditCard = styled(Card)`
 
 const EditGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
   gap: ${({ theme }) => theme.space.md};
 `;
 

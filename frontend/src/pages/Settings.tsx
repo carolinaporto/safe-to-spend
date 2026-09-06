@@ -84,18 +84,18 @@ const SectionTitle = styled.h2`
 
 const AddForm = styled.form`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.75rem), 1fr));
   gap: ${({ theme }) => theme.space.sm};
   align-items: end;
 `;
 
 const CostRow = styled.div`
   display: grid;
-  grid-template-columns: 1fr 120px 160px auto;
+  grid-template-columns: 1fr 7.5rem 10rem auto;
   gap: ${({ theme }) => theme.space.sm};
   align-items: center;
 
-  @media (max-width: 720px) {
+  @media (max-width: ${({ theme }) => theme.bp.sm}) {
     grid-template-columns: 1fr 1fr;
   }
 `;

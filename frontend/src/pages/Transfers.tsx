@@ -43,13 +43,13 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 const Grid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
   gap: ${({ theme }) => theme.space.lg};
 `;
 
 const FormGrid = styled.form`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
   gap: ${({ theme }) => theme.space.md};
   align-items: end;
 `;

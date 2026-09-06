@@ -42,7 +42,7 @@ const STATUS_TOKEN: Record<ImportRowStatus, keyof Theme["color"]> = {
 
 const Controls = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
   gap: ${({ theme }) => theme.space.md};
   align-items: end;
 `;
@@ -64,7 +64,7 @@ const SummaryRow = styled(Row)`
 const RowCategory = styled(Select)`
   padding: ${({ theme }) => `${theme.space.xxs} ${theme.space.xs}`};
   font-size: ${({ theme }) => theme.fontSize.xs};
-  max-width: 160px;
+  max-width: 10rem;
 `;
 
 const Done = styled(Card)`

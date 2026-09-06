@@ -42,7 +42,7 @@ const SectionTitle = styled.h2`
 
 const BalanceGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
   gap: ${({ theme }) => theme.space.md};
 `;
 
@@ -80,7 +80,7 @@ const SettleRow = styled.div`
 
 const AddForm = styled.form`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr));
   gap: ${({ theme }) => theme.space.sm};
   align-items: end;
 `;

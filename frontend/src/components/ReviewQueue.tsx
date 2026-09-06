@@ -17,7 +17,7 @@ const Item = styled(Card)`
   gap: ${({ theme }) => theme.space.md};
   align-items: center;
 
-  @media (max-width: 560px) {
+  @media (max-width: ${({ theme }) => theme.bp.sm}) {
     grid-template-columns: 1fr;
   }
 `;

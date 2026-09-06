@@ -11,10 +11,12 @@ const Layout = styled.div`
   grid-template-columns: ${({ theme }) => theme.layout.sidebarWidth} 1fr;
   min-height: 100%;
 
-  @media (max-width: 720px) {
+  @media (max-width: ${({ theme }) => theme.bp.md}) {
     grid-template-columns: 1fr;
   }
 `;
+
+/* ---------------------------------------------------------------- desktop */
 
 const Sidebar = styled.aside`
   display: flex;
@@ -24,11 +26,8 @@ const Sidebar = styled.aside`
   background: ${({ theme }) => theme.color.surface};
   border-right: 1px solid ${({ theme }) => theme.color.border};
 
-  @media (max-width: 720px) {
-    flex-direction: row;
-    flex-wrap: wrap;
-    border-right: none;
-    border-bottom: 1px solid ${({ theme }) => theme.color.border};
+  @media (max-width: ${({ theme }) => theme.bp.md}) {
+    display: none;
   }
 `;
 
@@ -40,10 +39,6 @@ const Brand = styled.div`
   font-size: ${({ theme }) => theme.fontSize.lg};
   padding: ${({ theme }) => `${theme.space.sm} ${theme.space.md}`};
   margin-bottom: ${({ theme }) => theme.space.md};
-
-  @media (max-width: 720px) {
-    margin-bottom: 0;
-  }
 `;
 
 const DemoBadge = styled.span`
@@ -82,10 +77,6 @@ const NavItemLink = styled(NavLink)`
 
 const Spacer = styled.div`
   flex: 1;
-
-  @media (max-width: 720px) {
-    display: none;
-  }
 `;
 
 const SignOutButton = styled.button`
@@ -106,14 +97,116 @@ const SignOutButton = styled.button`
   }
 `;
 
+/* ----------------------------------------------------------------- mobile */
+
+const TopBar = styled.header`
+  display: none;
+
+  @media (max-width: ${({ theme }) => theme.bp.md}) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${({ theme }) => theme.space.sm};
+    padding: ${({ theme }) => `${theme.space.sm} ${theme.space.lg}`};
+    background: ${({ theme }) => theme.color.surface};
+    border-bottom: 1px solid ${({ theme }) => theme.color.border};
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+`;
+
+const TopBrand = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.sm};
+  font-weight: ${({ theme }) => theme.fontWeight.bold};
+`;
+
+const IconButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  background: none;
+  border-radius: ${({ theme }) => theme.radius.md};
+  color: ${({ theme }) => theme.color.textMuted};
+  cursor: pointer;
+
+  &:active {
+    background: ${({ theme }) => theme.color.surfaceRaised};
+  }
+`;
+
+const BottomNav = styled.nav`
+  display: none;
+
+  @media (max-width: ${({ theme }) => theme.bp.md}) {
+    display: flex;
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 20;
+    min-height: ${({ theme }) => theme.layout.bottomNavHeight};
+    background: ${({ theme }) => theme.color.surface};
+    border-top: 1px solid ${({ theme }) => theme.color.border};
+    padding-bottom: env(safe-area-inset-bottom);
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+`;
+
+const BottomLink = styled(NavLink)`
+  flex: 1 0 auto;
+  min-width: 4.25rem;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: ${({ theme }) => `${theme.space.sm} ${theme.space.xs}`};
+  color: ${({ theme }) => theme.color.textFaint};
+  font-size: 0.625rem;
+  font-weight: ${({ theme }) => theme.fontWeight.medium};
+  white-space: nowrap;
+
+  svg {
+    transition: transform ${({ theme }) => theme.transition.fast};
+  }
+
+  &.active {
+    color: ${({ theme }) => theme.color.primary};
+  }
+
+  &.active svg {
+    transform: translateY(-1px) scale(1.08);
+  }
+`;
+
+const Content = styled.div`
+  min-width: 0;
+`;
+
 const Main = styled.main`
   padding: ${({ theme }) => theme.space.xxl};
   width: 100%;
   max-width: ${({ theme }) => theme.layout.contentMaxWidth};
   margin: 0 auto;
+  min-width: 0;
 
-  @media (max-width: 720px) {
+  @media (max-width: ${({ theme }) => theme.bp.md}) {
     padding: ${({ theme }) => theme.space.lg};
+    padding-bottom: calc(
+      ${({ theme }) => theme.layout.bottomNavHeight} +
+        env(safe-area-inset-bottom) + ${({ theme }) => theme.space.lg}
+    );
   }
 `;
 
@@ -143,9 +236,35 @@ export function AppShell() {
           Sign out
         </SignOutButton>
       </Sidebar>
-      <Main>
-        <Outlet />
-      </Main>
+
+      <Content>
+        <TopBar>
+          <TopBrand>
+            safe-to-spend
+            {meta.demo_mode && <DemoBadge>Demo</DemoBadge>}
+          </TopBrand>
+          <IconButton
+            type="button"
+            onClick={logout}
+            aria-label="Sign out"
+          >
+            <SignOut size={20} />
+          </IconButton>
+        </TopBar>
+
+        <Main>
+          <Outlet />
+        </Main>
+      </Content>
+
+      <BottomNav>
+        {items.map(({ to, label, icon: Icon, end }) => (
+          <BottomLink key={to} to={to} end={end}>
+            <Icon size={22} />
+            {label}
+          </BottomLink>
+        ))}
+      </BottomNav>
     </Layout>
   );
 }
