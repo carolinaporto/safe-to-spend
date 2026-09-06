@@ -341,7 +341,11 @@ CSV upload with Chase/Amex/Wise parsers, deduplication, preview, merchant rules,
 Shared expenses and settlements, external account handling, credit card statements and due dates, recurring rules, income screen, cumulative FX cost report.
 
 **Phase 5 — Optional**
-Installable PWA with offline quick add, receipt parsing via Anthropic API, Wise API sync, email alerts, Plaid.
+Installable PWA with offline quick add, receipt parsing via Anthropic API, email alerts.
+
+**Phase 6 — Bank connections**
+Live transaction sync: Wise (direct personal API) and Chase (via Teller).
+Full design, data model and runbook in [`CONNECTIONS.md`](CONNECTIONS.md).
 
 ---
 
