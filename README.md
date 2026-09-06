@@ -125,8 +125,6 @@ env-var checklist are in [`SECURITY.md`](SECURITY.md).
 - [x] CSV import with deduplication and merchant rules
 - [x] Shared expenses and credit card statements
 - [ ] Installable PWA with offline quick-add
-- [ ] Wise API sync
-- [ ] Plaid for Chase and Amex
 
 ---
 
