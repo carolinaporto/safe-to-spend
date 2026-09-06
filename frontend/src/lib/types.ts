@@ -102,6 +102,7 @@ export interface AccountBalance {
   currency: Currency;
   kind: AccountKind;
   is_owned: boolean;
+  is_active: boolean;
   balance: string;
   balance_usd: string;
 }

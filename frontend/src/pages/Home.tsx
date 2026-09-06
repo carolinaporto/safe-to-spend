@@ -306,14 +306,7 @@ export function Home() {
         <Stat>
           <StatLabel>Spent this month</StatLabel>
           <StatValue>{formatMoney(o.mtd_spend_usd, "USD")}</StatValue>
-          <Muted>setup costs excluded from the pace</Muted>
-        </Stat>
-        <Stat>
-          <StatLabel>Runway</StatLabel>
-          <StatValue>
-            {o.runway_days === null ? "—" : `${o.runway_days} days`}
-          </StatValue>
-          <Muted>at the current burn rate</Muted>
+          <Muted>setup & recurring bills excluded from the pace</Muted>
         </Stat>
       </StatGrid>
 
@@ -424,7 +417,9 @@ export function Home() {
       <Card>
         <ChartTitle>Accounts</ChartTitle>
         <AcctList>
-          {(balances.data?.accounts ?? []).map((a) => {
+          {(balances.data?.accounts ?? [])
+            .filter((a) => a.is_active)
+            .map((a) => {
             const cardInfo = cardByAccount.get(a.id);
             return (
               <AcctRow key={a.id} $alert={cardInfo?.alert}>

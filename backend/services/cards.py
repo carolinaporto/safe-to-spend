@@ -60,7 +60,10 @@ def card_panels(db: Session, today: dt.date | None = None) -> list[CardPanel]:
     accounts = (
         db.execute(
             select(Account)
-            .where(Account.kind == AccountKind.credit_card)
+            .where(
+                Account.kind == AccountKind.credit_card,
+                Account.is_active.is_(True),
+            )
             .order_by(Account.sort_order, Account.name)
         )
         .scalars()

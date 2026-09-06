@@ -45,6 +45,7 @@ class AccountBalance(ApiModel):
     currency: str
     kind: str
     is_owned: bool
+    is_active: bool
     balance: MoneyStr
     balance_usd: MoneyStr
 
@@ -67,6 +68,7 @@ def balances(db: Session = Depends(get_db)) -> BalancesOut:
                 currency=r.account.currency.value,
                 kind=r.account.kind.value,
                 is_owned=r.account.is_owned,
+                is_active=r.account.is_active,
                 balance=r.native,
                 balance_usd=r.usd,
             )
