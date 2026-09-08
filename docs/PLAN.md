@@ -232,10 +232,17 @@ mtd_spend         = Σ expenses this month
                     (excluding setup category, recurring-rule transactions,
                     transfers, and other people's shares)
 remaining_month   = monthly_ceiling − mtd_spend
-daily_allowance   = remaining_month / days_remaining_in_month
+daily_rate        = monthly_ceiling / days_in_month     (fixed for the month)
+daily_allowance   = daily_rate × day_of_month − mtd_spend
 ```
 Rules:
-- `daily_allowance` is the primary number on the home screen.
+- `daily_allowance` is the primary number on the home screen. The daily rate is
+  fixed for the whole month; `daily_allowance` is what the plan allows you to
+  have spent by the end of today minus actual `mtd_spend`. A running
+  surplus/deficit therefore lands on today's number — it can go negative when
+  you are ahead of pace — instead of being re-averaged over the days that
+  remain. It resets each month; last-month overspend is already reflected in a
+  lower `available` (and so a lower ceiling).
 - Traffic light: green if projected month-end spend is under the ceiling, warning up to 110%, danger above.
 - `setup` category spending is excluded from the monthly pace calculation but still deducted from `available`.
 - Recurring bills are reserved from `available` up front, so their generated transactions are excluded from the monthly pace and from the trailing burn rate (no double counting).

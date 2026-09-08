@@ -238,7 +238,8 @@ export function Home() {
     return <Muted>Could not load the dashboard.</Muted>;
 
   const o = overview.data;
-  const light = LIGHT_TOKEN[o.traffic_light];
+  const overPace = o.daily_allowance_usd.startsWith("-");
+  const light = overPace ? "danger" : LIGHT_TOKEN[o.traffic_light];
   const progressPct =
     (o.month_progress.elapsed_days / o.month_progress.total_days) * 100;
 
@@ -265,11 +266,14 @@ export function Home() {
       <PageTitle>Home</PageTitle>
 
       <Hero $light={light}>
-        <HeroLabel>Safe to spend today</HeroLabel>
+        <HeroLabel>
+          {overPace ? "Over pace — ease off" : "Safe to spend today"}
+        </HeroLabel>
         <HeroValue $light={light}>
           {formatMoney(o.daily_allowance_usd, "USD")}
         </HeroValue>
         <Muted>
+          Pace {formatMoney(o.daily_rate_usd, "USD")}/day ·{" "}
           {formatMoney(o.remaining_month_usd, "USD")} left this month ·{" "}
           {o.days_remaining_in_month} day
           {o.days_remaining_in_month === 1 ? "" : "s"} to go · projected month-end

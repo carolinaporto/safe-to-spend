@@ -127,6 +127,7 @@ export interface DashboardOverview {
   mtd_spend_usd: string;
   remaining_month_usd: string;
   days_remaining_in_month: number;
+  daily_rate_usd: string;
   daily_allowance_usd: string;
   projected_month_end_spend_usd: string;
   traffic_light: TrafficLight;

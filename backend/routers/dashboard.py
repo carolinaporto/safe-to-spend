@@ -97,6 +97,7 @@ class OverviewOut(ApiModel):
     mtd_spend_usd: MoneyStr
     remaining_month_usd: MoneyStr
     days_remaining_in_month: int
+    daily_rate_usd: MoneyStr
     daily_allowance_usd: MoneyStr
     projected_month_end_spend_usd: MoneyStr
     traffic_light: str
@@ -126,6 +127,7 @@ def overview(db: Session = Depends(get_db)) -> OverviewOut:
         mtd_spend_usd=result.mtd_spend_usd,
         remaining_month_usd=result.remaining_month_usd,
         days_remaining_in_month=result.days_remaining_in_month,
+        daily_rate_usd=result.daily_rate_usd,
         daily_allowance_usd=result.daily_allowance_usd,
         projected_month_end_spend_usd=result.projected_month_end_spend_usd,
         traffic_light=result.traffic_light,

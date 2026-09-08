@@ -126,6 +126,51 @@ def test_setup_spend_excluded_from_month_to_date_pace(
     assert result.mtd_spend_usd == Decimal("200.00")  # furniture excluded
 
 
+def test_daily_rate_is_the_ceiling_over_days_in_month(
+    db: Session, account: Account
+) -> None:
+    today = dt.date(2026, 3, 11)  # a 31-day month
+    _config(db, reserve="0", committed=[], end=dt.date(2026, 9, 1))
+    result = compute_overview(db, today)
+    expected = result.monthly_ceiling_usd / Decimal("31")
+    assert abs(result.daily_rate_usd - expected) < Decimal("0.01")
+
+
+def test_daily_allowance_carries_the_deficit_instead_of_reaveraging(
+    db: Session, account: Account
+) -> None:
+    """Overspending early drives today's allowance negative rather than being
+    re-averaged over the days that remain (the old formula would still look
+    survivable)."""
+    today = dt.date(2026, 3, 11)  # day 11 of 31
+    _config(db, reserve="0", committed=[], end=dt.date(2026, 9, 1))
+    groceries = Category(name="Groceries", nature=CategoryNature.essential)
+    db.add(groceries)
+    db.flush()
+
+    # ~$900 by day 11 when the pace only accrues ~$620 by then, but there is
+    # still budget left for the month as a whole.
+    _expense(db, account, "900.00", dt.date(2026, 3, 3), groceries)
+    result = compute_overview(db, today)
+
+    assert result.daily_allowance_usd < 0
+    assert result.remaining_month_usd > 0  # old model: "still fine"
+    old_formula = result.remaining_month_usd / Decimal(
+        result.days_remaining_in_month
+    )
+    assert result.daily_allowance_usd < old_formula
+
+
+def test_daily_allowance_rolls_a_surplus_forward(
+    db: Session, account: Account
+) -> None:
+    today = dt.date(2026, 3, 11)  # day 11
+    _config(db, reserve="0", committed=[], end=dt.date(2026, 9, 1))
+    result = compute_overview(db, today)
+    # Nothing spent for 11 days: today carries 11 days of accrued budget.
+    assert result.daily_allowance_usd > result.daily_rate_usd * 10
+
+
 def test_traffic_light_thresholds(db: Session, account: Account) -> None:
     _config(db, reserve="0", committed=[], end=dt.date(2026, 9, 1))
     groceries = Category(name="Groceries", nature=CategoryNature.essential)

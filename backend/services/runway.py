@@ -8,7 +8,13 @@
     monthly_ceiling  = available / months_remaining
     mtd_spend        = Σ this month's flexible consumption
                        (setup and recurring bills excluded from the pace)
-    daily_allowance  = (monthly_ceiling − mtd_spend) / days_left_in_month
+    daily_rate       = monthly_ceiling / days_in_month          (fixed all month)
+    daily_allowance  = daily_rate × day_of_month − mtd_spend
+
+The daily rate is fixed for the whole month. ``daily_allowance`` is what the
+plan lets you have spent by the end of today minus what you actually spent, so
+a running surplus/deficit lands on today's number (and can go negative) instead
+of being re-averaged across the days that remain.
 
 Open credit-card statements are already reflected as negative card balances.
 """
@@ -82,6 +88,7 @@ class Overview:
     mtd_spend_usd: Decimal
     remaining_month_usd: Decimal
     days_remaining_in_month: int
+    daily_rate_usd: Decimal
     daily_allowance_usd: Decimal
     projected_month_end_spend_usd: Decimal
     traffic_light: str
@@ -131,9 +138,13 @@ def compute_overview(db: Session, today: dt.date | None = None) -> Overview:
 
     days_in_month = month_end(today).day
     days_remaining_in_month = (month_end(today) - today).days + 1
-    daily_allowance = money(
-        remaining_month / Decimal(days_remaining_in_month)
-    )
+    # A fixed daily rate for the whole month. Today's allowance is what the plan
+    # lets you have spent by end of today minus actual month-to-date spend, so a
+    # deficit hits today's number directly (possibly negative) rather than being
+    # smeared across the remaining days.
+    per_day = monthly_ceiling / Decimal(days_in_month)
+    daily_rate = money(per_day)
+    daily_allowance = money(per_day * Decimal(today.day) - mtd)
 
     days_elapsed = today.day
     projected = (
@@ -160,6 +171,7 @@ def compute_overview(db: Session, today: dt.date | None = None) -> Overview:
         mtd_spend_usd=mtd,
         remaining_month_usd=remaining_month,
         days_remaining_in_month=days_remaining_in_month,
+        daily_rate_usd=daily_rate,
         daily_allowance_usd=daily_allowance,
         projected_month_end_spend_usd=projected,
         traffic_light=_traffic_light(projected, monthly_ceiling),
