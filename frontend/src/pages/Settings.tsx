@@ -2,6 +2,7 @@ import { PencilSimple, Plus, TrashSimple } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import styled from "styled-components";
 
+import { DecimalInput } from "../components/DecimalInput";
 import {
   Badge,
   Button,
@@ -339,8 +340,7 @@ function AccountsSection() {
         </Field>
         <Field>
           <FieldLabel>Opening balance</FieldLabel>
-          <Input
-            inputMode="decimal"
+          <DecimalInput
             value={draft.opening_balance}
             onChange={(e) =>
               setDraft({ ...draft, opening_balance: e.target.value })
@@ -602,8 +602,7 @@ function PlanSection() {
         </Field>
         <Field>
           <FieldLabel>Emergency reserve (USD)</FieldLabel>
-          <Input
-            inputMode="decimal"
+          <DecimalInput
             disabled={meta.demo_mode}
             value={form.emergency_reserve_usd}
             onChange={(e) =>
@@ -630,8 +629,7 @@ function PlanSection() {
                   )
                 }
               />
-              <Input
-                inputMode="decimal"
+              <DecimalInput
                 placeholder="USD"
                 disabled={meta.demo_mode}
                 value={cost.amount_usd}
@@ -1053,8 +1051,7 @@ function RecurringRulesSection() {
           </Field>
           <Field>
             <FieldLabel>Amount</FieldLabel>
-            <Input
-              inputMode="decimal"
+            <DecimalInput
               required
               value={draft.amount}
               onChange={(e) => setDraft({ ...draft, amount: e.target.value })}

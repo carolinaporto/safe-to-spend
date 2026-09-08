@@ -15,6 +15,7 @@ import {
 import { useCallback, useMemo, useState } from "react";
 import styled from "styled-components";
 
+import { DecimalInput } from "../components/DecimalInput";
 import {
   Badge,
   Button,
@@ -237,8 +238,7 @@ function EditTransactionPanel({
           )}
           <Field>
             <FieldLabel>Amount ({txn.currency})</FieldLabel>
-            <Input
-              inputMode="decimal"
+            <DecimalInput
               value={form.amount}
               onChange={(e) => set("amount", e.target.value)}
             />

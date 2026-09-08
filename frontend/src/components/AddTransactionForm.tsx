@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { ApiError } from "../lib/api";
 import { useAccounts, useCategories, useCreateTransaction } from "../lib/queries";
+import { DecimalInput } from "./DecimalInput";
 import {
   Button,
   Card,
@@ -33,7 +34,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-const Amount = styled(Input)`
+const Amount = styled(DecimalInput)`
   font-size: ${({ theme }) => theme.fontSize.xl};
   text-align: center;
   padding: ${({ theme }) => theme.space.md};
@@ -134,7 +135,6 @@ export function AddTransactionForm() {
       <Stack $gap="md">
         <Field>
           <Amount
-            inputMode="decimal"
             placeholder="0.00"
             aria-label="Amount"
             {...register("amount")}

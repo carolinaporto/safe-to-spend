@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import styled from "styled-components";
 
 import { ProviderRateChart, TransferCostChart } from "../components/charts";
+import { DecimalInput } from "../components/DecimalInput";
 import {
   Button,
   Card,
@@ -256,8 +257,7 @@ export function Transfers() {
             </Field>
             <Field>
               <FieldLabel>Amount out</FieldLabel>
-              <Input
-                inputMode="decimal"
+              <DecimalInput
                 required
                 value={draft.amount_out}
                 onChange={(e) =>
@@ -267,8 +267,7 @@ export function Transfers() {
             </Field>
             <Field>
               <FieldLabel>Amount in</FieldLabel>
-              <Input
-                inputMode="decimal"
+              <DecimalInput
                 required
                 value={draft.amount_in}
                 onChange={(e) =>
@@ -278,8 +277,7 @@ export function Transfers() {
             </Field>
             <Field>
               <FieldLabel>Market rate (optional)</FieldLabel>
-              <Input
-                inputMode="decimal"
+              <DecimalInput
                 placeholder="mid-market"
                 value={draft.market_rate}
                 onChange={(e) =>

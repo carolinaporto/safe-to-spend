@@ -2,12 +2,12 @@ import { CaretLeft, CaretRight, Copy } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 
+import { DecimalInput } from "../components/DecimalInput";
 import {
   Button,
   Card,
   ErrorText,
   GhostButton,
-  Input,
   Muted,
   PageTitle,
   Row,
@@ -90,7 +90,7 @@ const Remaining = styled.span<{ $negative: boolean }>`
     $negative ? theme.color.danger : theme.color.textMuted};
 `;
 
-const SmallInput = styled(Input)`
+const SmallInput = styled(DecimalInput)`
   padding: ${({ theme }) => `${theme.space.xs} ${theme.space.sm}`};
 `;
 
@@ -222,7 +222,6 @@ export function Budget() {
                 )}
               </Name>
               <SmallInput
-                inputMode="decimal"
                 aria-label={`${line.name} budget`}
                 disabled={meta.demo_mode}
                 value={d.amount}
