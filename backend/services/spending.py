@@ -13,10 +13,8 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from backend.models.account import Account
 from backend.models.category import Category
 from backend.models.enums import (
-    AccountKind,
     CategoryNature,
     TransactionDirection,
     TransactionKind,
@@ -42,15 +40,16 @@ def _expense_where(*, exclude_from_budget_only: bool):
 
 def _shares_query(date_from: dt.date, date_to: dt.date):
     """Slices of shared expenses that belong to *other people* (money owed to
-    me), scoped to a date range. External-card liabilities are not included."""
+    me), scoped to a date range. Works on my own accounts and on someone
+    else's card alike — the roommate slices of a purchase on Dad's card are
+    still not my consumption. My own liability slices (``i_owe``) are not
+    subtracted; that part I did consume."""
     return (
         select(Transaction.category_id, _SHARE_SUM)
         .join(ExpenseShare, ExpenseShare.transaction_id == Transaction.id)
-        .join(Account, Account.id == Transaction.account_id)
         .where(
             Transaction.kind == TransactionKind.expense,
-            Transaction.is_shared.is_(True),
-            Account.kind != AccountKind.external,
+            ExpenseShare.i_owe.is_(False),
             Transaction.date >= date_from,
             Transaction.date <= date_to,
         )
@@ -136,11 +135,9 @@ def by_category_and_month(
     share_stmt = (
         select(_MONTH, Transaction.category_id, _SHARE_SUM)
         .join(ExpenseShare, ExpenseShare.transaction_id == Transaction.id)
-        .join(Account, Account.id == Transaction.account_id)
         .where(
             Transaction.kind == TransactionKind.expense,
-            Transaction.is_shared.is_(True),
-            Account.kind != AccountKind.external,
+            ExpenseShare.i_owe.is_(False),
             Transaction.date >= date_from,
             Transaction.date <= date_to,
         )

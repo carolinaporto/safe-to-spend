@@ -6,11 +6,16 @@ from backend.models._types import Money
 
 
 class ExpenseShare(Base):
-    """A slice of a transaction that belongs to another person.
+    """A slice of a transaction tied to another person.
 
-    - On a shared expense I paid: they owe me ``share_amount_usd`` (receivable).
-    - On an ``external`` account purchase treated as "I owe it back": I owe the
-      account's owner ``share_amount_usd`` (liability).
+    - ``i_owe`` false: they owe me ``share_amount_usd`` (a receivable) — their
+      slice of an expense I fronted.
+    - ``i_owe`` true: I owe this person ``share_amount_usd`` (a liability) —
+      e.g. the full charge on their credit card that I put through.
+
+    A single transaction can carry both: a purchase on Dad's card split with
+    roommates has one ``i_owe`` liability to Dad for the whole charge plus a
+    receivable per roommate.
 
     Settling creates a linked ``income`` (or expense) transaction and sets
     ``settled`` + ``settled_transaction_id`` (spec 4.3).
@@ -26,6 +31,10 @@ class ExpenseShare(Base):
         ForeignKey("people.id", ondelete="CASCADE")
     )
     share_amount_usd: Mapped[Money]
+    # true: I owe them; false: they owe me.
+    i_owe: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false"
+    )
     settled: Mapped[bool] = mapped_column(Boolean, default=False)
     settled_transaction_id: Mapped[int | None] = mapped_column(
         ForeignKey("transactions.id", ondelete="SET NULL")

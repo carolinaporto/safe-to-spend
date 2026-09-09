@@ -138,6 +138,51 @@ def test_external_owe_creates_a_liability_against_the_owner(
     assert overview["liabilities_usd"] == "120.00"
 
 
+def test_external_card_split_with_roommates(
+    api_client: TestClient, auth_headers, people, dads_card, rent, db: Session
+) -> None:
+    """$300 groceries on Dad's card, split 3 ways: I owe Dad the whole charge,
+    each roommate owes me their share, and only my $100 hits the pace."""
+    marina = people["marina"]
+    bob = Person(name="Bob", role=PersonRole.roommate)
+    db.add(bob)
+    db.flush()
+
+    resp = api_client.post(
+        "/api/transactions",
+        json={
+            "account_id": dads_card.id,
+            "kind": "expense",
+            "amount": "300.00",
+            "date": TODAY.isoformat(),
+            "category_id": rent.id,
+            "external_treatment": "owe",
+            "shares": [
+                {"person_id": marina.id, "share_amount_usd": "100.00"},
+                {"person_id": bob.id, "share_amount_usd": "100.00"},
+            ],
+        },
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+
+    balances = api_client.get(
+        "/api/people/balances", headers=auth_headers
+    ).json()
+    by_id = {b["person_id"]: b for b in balances}
+    assert by_id[people["dad"].id]["i_owe_usd"] == "300.00"
+    assert by_id[marina.id]["owed_to_me_usd"] == "100.00"
+    assert by_id[bob.id]["owed_to_me_usd"] == "100.00"
+
+    overview = api_client.get(
+        "/api/dashboard/overview", headers=auth_headers
+    ).json()
+    assert overview["mtd_spend_usd"] == "100.00"  # only my share
+    # +200 receivables − 300 liability = −100 (my true cost)
+    assert overview["liabilities_usd"] == "300.00"
+    assert overview["receivables_usd"] == "200.00"
+
+
 def test_external_gift_counts_in_report_but_not_budget(
     api_client: TestClient, auth_headers, dads_card, rent
 ) -> None:

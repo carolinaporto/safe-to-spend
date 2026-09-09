@@ -26,6 +26,8 @@ MANUAL_KINDS = {
 class ShareIn(BaseModel):
     person_id: int
     share_amount_usd: MoneyStr = Field(gt=0)
+    # true: I owe this person (a liability). Default: they owe me.
+    i_owe: bool = False
 
 
 class ShareOut(ApiModel):
@@ -33,6 +35,7 @@ class ShareOut(ApiModel):
     person_id: int
     share_amount_usd: MoneyStr
     settled: bool
+    i_owe: bool
 
 
 class TransactionCreate(BaseModel):
