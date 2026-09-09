@@ -86,8 +86,6 @@ export interface ExpenseShare {
   person_id: number;
   share_amount_usd: string;
   settled: boolean;
-  /** true: I owe this person; false: they owe me. */
-  i_owe: boolean;
 }
 
 export interface TransactionPage {

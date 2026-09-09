@@ -200,24 +200,15 @@ Do **not** create an expense row for this cost. The two ledger legs already leav
 
 ### 4.3 Shared expenses
 1. Log the full expense with `is_shared = true`.
-2. Create `expense_shares` rows for each other person, `i_owe = false` (they owe
-   me). My own share is implicit (`amount_usd − Σ those shares`).
-3. Reported spending and the monthly pace use `amount_usd − Σ(i_owe = false shares)`.
-4. Each unsettled `i_owe = false` share is a receivable.
-5. When settled, create a linked `income` transaction and set `settled = true`
-   plus `settled_transaction_id`.
+2. Create `expense_shares` rows for each other person. My own share is implicit.
+3. Reported spending uses `amount_usd − Σ(other people's shares)`.
+4. The unsettled remainder is a receivable.
+5. When settled, create a linked `income` transaction and set `settled = true` plus `settled_transaction_id`.
 
 ### 4.4 External account purchases
 When `account.kind = 'external'`, the entry form asks for treatment:
 - **Gift** → counts in category spending, `excluded_from_my_budget = true`, no effect on balances or runway.
-- **I owe it back** → an `expense_shares` row with `i_owe = true` against the
-  card's owner for the **whole charge**: a liability shown in "I owe" and
-  deducted from available funds. The purchase can still be split — add
-  `i_owe = false` shares for the people who reimburse me, exactly as in 4.3.
-  My own consumption (charge − those shares) is what hits the pace; the owner
-  liability is not subtracted from it. Settling with the owner books an
-  `adjustment` out of one of my accounts (equivalently: they send me that much
-  less next time).
+- **I owe it back** → creates a liability against that person, shown in "I owe", deducted from available funds.
 
 ### 4.5 Runway and safe-to-spend
 ```

@@ -86,13 +86,10 @@ def _require_person(db: Session, person_id: int) -> Person:
 def _set_shares(
     db: Session, txn: Transaction, shares: list[ShareIn]
 ) -> None:
-    """Replace the transaction's expense_shares. The slices owed *to me*
-    (``i_owe`` false) may not exceed the transaction amount — my share is the
-    remainder. ``i_owe`` slices (a liability to a card owner) are separate."""
-    owed_to_me = sum(
-        (s.share_amount_usd for s in shares if not s.i_owe), ZERO
-    )
-    if owed_to_me > txn.amount_usd:
+    """Replace the transaction's expense_shares. Total may not exceed the
+    transaction's own USD amount (my share is the remainder)."""
+    total = sum((s.share_amount_usd for s in shares), ZERO)
+    if total > txn.amount_usd:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "shares exceed the transaction amount",
@@ -101,7 +98,6 @@ def _set_shares(
         ExpenseShare(
             person_id=_require_person(db, s.person_id).id,
             share_amount_usd=s.share_amount_usd,
-            i_owe=s.i_owe,
         )
         for s in shares
     ]
@@ -120,24 +116,19 @@ def _apply_external_treatment(
     if body.external_treatment == ExternalTreatment.gift:
         txn.excluded_from_my_budget = True
         return
-    # "I owe it back" — a liability against the card's owner for the whole
-    # charge. Any roommate slices set from ``body.shares`` (receivables) stay;
-    # my own consumption is the charge minus those.
+    # "I owe it back" — a liability against the card's owner.
     owner_id = body.owed_to_person_id or account.owner_person_id
     if owner_id is None:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
             "who do you owe? set owed_to_person_id or the account's owner",
         )
-    owner = _require_person(db, owner_id)
-    txn.shares = [s for s in txn.shares if not s.i_owe] + [
+    txn.shares = [
         ExpenseShare(
-            person_id=owner.id,
+            person_id=_require_person(db, owner_id).id,
             share_amount_usd=txn.amount_usd,
-            i_owe=True,
         )
     ]
-    txn.is_shared = True
 
 
 def create_transaction(db: Session, body: TransactionCreate) -> Transaction:

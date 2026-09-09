@@ -24,7 +24,6 @@ import {
   useDashboardBalances,
   useMonthSummary,
   useOverview,
-  usePeopleBalances,
   useProjection,
   useTransactions,
 } from "../lib/queries";
@@ -233,7 +232,6 @@ export function Home() {
   const review = useTransactions({ needs_review: true, page_size: 1 });
   const budget = useBudget(currentMonth());
   const cards = useCards();
-  const peopleBalances = usePeopleBalances();
 
   if (overview.isLoading) return <Muted>Loading dashboard…</Muted>;
   if (overview.isError || !overview.data)
@@ -257,15 +255,11 @@ export function Home() {
   const cardByAccount = new Map(cardPanels.map((c) => [c.account_id, c]));
   const hasReceivables =
     o.receivables_usd !== "0.00" && !o.receivables_usd.startsWith("-");
-  const iOwe = (peopleBalances.data ?? []).filter((b) =>
-    b.net_usd.startsWith("-"),
-  );
   const hasAlerts =
     unreviewedTotal > 0 ||
     exceeded.length > 0 ||
     dueCards.length > 0 ||
-    hasReceivables ||
-    iOwe.length > 0;
+    hasReceivables;
 
   return (
     <Stack $gap="xl">
@@ -421,14 +415,6 @@ export function Home() {
               unsettled — see People
             </AlertRow>
           )}
-          {iOwe.map((b) => (
-            <AlertRow key={b.person_id}>
-              <Warning size={16} weight="fill" />
-              You owe {b.name}{" "}
-              {formatMoney(b.net_usd.replace("-", ""), "USD")} — settle in
-              People
-            </AlertRow>
-          ))}
         </Card>
       )}
 
