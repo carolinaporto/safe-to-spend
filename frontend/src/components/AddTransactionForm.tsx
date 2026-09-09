@@ -168,6 +168,20 @@ export function AddTransactionForm() {
     [accounts.data, currency],
   );
 
+  // Someone else's card with no owner set can't be used here (we wouldn't
+  // know who you owe) — point the user at Settings instead of hiding it.
+  const ownerlessExternal = useMemo(
+    () =>
+      (accounts.data ?? []).filter(
+        (a) =>
+          a.currency === currency &&
+          a.is_active &&
+          !a.is_owned &&
+          a.owner_person_id == null,
+      ),
+    [accounts.data, currency],
+  );
+
   const selectedAccount = useMemo(
     () => (accounts.data ?? []).find((a) => a.id === accountId),
     [accounts.data, accountId],
@@ -318,6 +332,12 @@ export function AddTransactionForm() {
           {errors.account_id && (
             <ErrorText>{errors.account_id.message}</ErrorText>
           )}
+          {ownerlessExternal.map((a) => (
+            <Muted key={a.id}>
+              {a.name} needs an owner — set whose card it is in Settings →
+              Accounts (add the person in People first).
+            </Muted>
+          ))}
         </Field>
 
         {external && ownerId != null && (
