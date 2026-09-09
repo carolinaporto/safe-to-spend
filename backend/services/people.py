@@ -33,43 +33,30 @@ class PersonBalance:
     net_usd: Decimal  # positive: they owe me; negative: I owe them
 
 
-def _on_external(external: bool):
-    """Predicate: the share's transaction is (not) on an external account.
+def _unsettled_shares(i_owe: bool, *columns):
+    """Query over unsettled ExpenseShare rows in one direction.
 
-    A slice on one of my own accounts is money owed *to* me (a receivable);
-    a slice on someone else's card is money *I* owe (a liability).
+    ``i_owe`` false: slices other people owe me (receivables).
+    ``i_owe`` true: slices I owe someone (liabilities).
     """
-    return (
-        Account.kind == AccountKind.external
-        if external
-        else Account.kind != AccountKind.external
+    return select(*(columns or (ExpenseShare,))).where(
+        ExpenseShare.settled.is_(False), ExpenseShare.i_owe.is_(i_owe)
     )
 
 
-def _unsettled_shares(external: bool, *columns):
-    """Query over unsettled ExpenseShare rows joined to their txn+account,
-    selecting ``columns`` (default: the whole ExpenseShare row)."""
-    return (
-        select(*(columns or (ExpenseShare,)))
-        .join(Transaction, Transaction.id == ExpenseShare.transaction_id)
-        .join(Account, Account.id == Transaction.account_id)
-        .where(ExpenseShare.settled.is_(False), _on_external(external))
-    )
-
-
-def _unsettled_total(db: Session, external: bool) -> Decimal:
-    return money(db.scalar(_unsettled_shares(external, _SHARE_SUM)) or ZERO)
+def _unsettled_total(db: Session, i_owe: bool) -> Decimal:
+    return money(db.scalar(_unsettled_shares(i_owe, _SHARE_SUM)) or ZERO)
 
 
 def people_balances(db: Session) -> list[PersonBalance]:
-    def by_person(external: bool) -> dict[int, Decimal]:
+    def by_person(i_owe: bool) -> dict[int, Decimal]:
         stmt = _unsettled_shares(
-            external, ExpenseShare.person_id, _SHARE_SUM
+            i_owe, ExpenseShare.person_id, _SHARE_SUM
         ).group_by(ExpenseShare.person_id)
         return dict(db.execute(stmt).all())
 
-    owed = by_person(external=False)
-    i_owe = by_person(external=True)
+    owed = by_person(i_owe=False)
+    i_owe = by_person(i_owe=True)
     people = db.execute(select(Person).order_by(Person.name)).scalars().all()
     out: list[PersonBalance] = []
     for person in people:
@@ -89,11 +76,11 @@ def people_balances(db: Session) -> list[PersonBalance]:
 
 
 def total_receivables(db: Session) -> Decimal:
-    return _unsettled_total(db, external=False)
+    return _unsettled_total(db, i_owe=False)
 
 
 def total_liabilities(db: Session) -> Decimal:
-    return _unsettled_total(db, external=True)
+    return _unsettled_total(db, i_owe=True)
 
 
 def _usd_to_account(
@@ -120,14 +107,14 @@ def settle_person(
             "settle into one of your own accounts",
         )
 
-    def shares_for(external: bool) -> list[ExpenseShare]:
-        stmt = _unsettled_shares(external).where(
+    def shares_for(i_owe: bool) -> list[ExpenseShare]:
+        stmt = _unsettled_shares(i_owe).where(
             ExpenseShare.person_id == person_id
         )
         return list(db.execute(stmt).scalars())
 
-    receivable_shares = shares_for(external=False)
-    liability_shares = shares_for(external=True)
+    receivable_shares = shares_for(i_owe=False)
+    liability_shares = shares_for(i_owe=True)
 
     owed = money(sum((s.share_amount_usd for s in receivable_shares), ZERO))
     i_owe = money(sum((s.share_amount_usd for s in liability_shares), ZERO))
